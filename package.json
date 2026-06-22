@@ -1,0 +1,22 @@
+{
+  "name": "luckcoin",
+  "version": "0.1.0",
+  "description": "LuckCoin — a Node.js proof-of-concept blockchain inspired by the Maneki-neko (lucky cat)",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "blockchain",
+    "luckcoin",
+    "nodejs",
+    "proof-of-work"
+  ],
+  "author": "Andy Wong",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
