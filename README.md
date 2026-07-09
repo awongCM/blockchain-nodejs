@@ -41,6 +41,10 @@ src/
 3. **Phase 3** — Multi-node P2P network
 4. **Phase 4** — Simple smart contracts
 
+## Cursor skill
+
+Use `/repo-snapshot-guide` in Agent chat for a repo snapshot and high-level run instructions. See `.cursor/skills/repo-snapshot-guide/SKILL.md`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
