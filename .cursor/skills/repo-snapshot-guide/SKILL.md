@@ -112,6 +112,7 @@ If `README.md` lists phases/roadmap, mention current phase and what's next in on
 
 ## LuckCoin-specific notes
 
-- **Phase 1 (master / `cursor/luckcoin-phase1-a3b5`)**: CLI + core chain only
-- **Extended branch (`cursor/luckcoin-docker-cloud-a3b5`)**: adds `src/server.js`, Docker, Render blueprint, Cloud Agent config
-- Mining uses Proof of Work; default difficulty is 4 (slower). Use `LUCKCOIN_DIFFICULTY=2` for faster demos when running the web server
+- **Phase 1 (`cursor/luckcoin-phase1-a3b5`)**: CLI + core chain only (free-form block data)
+- **Phase 2 (`cursor/luckcoin-phase2-3ad5` / master after merge)**: wallets, signed transactions, mempool, coinbase mining rewards
+- **Extended branch (`cursor/luckcoin-docker-cloud-a3b5`)**: Phase 1 web dashboard + Docker + Render + Cloud Agent config (not yet updated for Phase 2)
+- Mining uses Proof of Work; default difficulty is 4 (slower). Tests use difficulty 2

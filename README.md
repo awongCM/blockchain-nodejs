@@ -2,24 +2,47 @@
 
 A Node.js proof-of-concept blockchain inspired by the **Maneki-neko** (招き猫) — the beckoning lucky cat of East Asian tradition. LuckCoin is a learning project that implements core blockchain concepts step by step.
 
-## Phase 1 — Core Chain
+## Phase 2 — Transactions & Wallets
 
-- **Block** — linked-list node with index, timestamp, data, previous hash, nonce, and hash
-- **Blockchain** — genesis block, block creation, Proof of Work mining, chain validation
-- **CLI** — inspect the chain, mine blocks, and validate integrity
+- **Wallet** — in-memory ECDSA secp256k1 keypairs with addresses
+- **Transaction** — signed transfers and coinbase rewards
+- **Mempool** — pending transactions validated before mining
+- **Blockchain** — account balances via chain replay; mining pays 100 LuckCoin + pending txs
+- **CLI** — create wallets, send coins, mine, and check balances
 
 ## Quick start
 
 ```bash
 npm start
+npm test
+```
+
+Set `LUCKCOIN_DIFFICULTY=2` for faster local mining (default is 4).
+
+### Example session
+
+```
+luckcoin> wallet create alice
+luckcoin> wallet create bob
+luckcoin> mine alice
+luckcoin> send alice bob 25
+luckcoin> mine alice
+luckcoin> balance alice
+luckcoin> balance bob
+luckcoin> validate
 ```
 
 ### CLI commands
 
 | Command | Description |
 |---|---|
+| `wallet create [name]` | Create an in-memory wallet |
+| `wallets` | List session wallets |
+| `send <from> <to> <amount>` | Sign and enqueue a transfer |
+| `pending` | Show mempool |
+| `mine <miner>` | Mine coinbase reward + pending transactions |
+| `balance <name\|address>` | Show chain balance |
 | `chain` | Print the full blockchain |
-| `mine <data>` | Mine a new block containing `<data>` |
 | `validate` | Check whether the chain is valid |
 | `help` | Show available commands |
 
@@ -31,13 +54,16 @@ src/
 │   ├── Block.js
 │   ├── Blockchain.js
 │   └── CryptoUtils.js
+├── wallet/
+│   ├── Wallet.js
+│   └── Transaction.js
 └── index.js
 ```
 
 ## Roadmap
 
-1. **Phase 1** — Core chain (current)
-2. **Phase 2** — Transactions and wallets
+1. **Phase 1** — Core chain ✓
+2. **Phase 2** — Transactions and wallets (current)
 3. **Phase 3** — Multi-node P2P network
 4. **Phase 4** — Simple smart contracts
 
