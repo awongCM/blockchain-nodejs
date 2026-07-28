@@ -46,9 +46,9 @@ No consensus changes beyond treating block payload as transactions instead of fr
 ### Wallet (`src/wallet/Wallet.js`)
 
 - ECDSA on `secp256k1` via Node `crypto`
-- Address = stable hex encoding of the public key (one format used everywhere)
+- Address = uncompressed public key as hex string (no `0x` prefix), derived from the key pair and used as the canonical identity everywhere
 - In-memory only for the CLI session
-- API: create keypair, expose `address`, `sign(hashOrPayload)`, hold private key privately
+- API: `Wallet.create()` (or constructor that generates keys), expose `address`, `sign(hash)`, keep private key non-enumerable / not printed by default
 
 ### Transaction (`src/wallet/Transaction.js`)
 
@@ -78,10 +78,10 @@ Keep existing `sha256` and `meetsDifficulty`.
 
 ### Block (`src/core/Block.js`)
 
-- `data` becomes a **transactions array**
-- Hashing serializes transactions deterministically (e.g. `JSON.stringify` of a stable field order, or join of each tx’s hash)
-- `toJSON()` continues to expose the block including transactions
-- Free-form string data is no longer supported on this branch’s Phase 2 chain
+- `data` / `transactions` becomes a **transactions array** (property name: `transactions` on the Block; hashing uses that array)
+- Hashing serializes deterministically by joining each transaction’s `calculateHash()` in order (empty array → empty string contribution), so payload is `${index}${timestamp}${txHashesJoined}${previousHash}${nonce}`
+- `toJSON()` exposes the block including full transaction objects
+- Free-form string `data` is removed on this branch; Phase 1 string blocks are not supported in Phase 2
 
 ### Blockchain (`src/core/Blockchain.js`)
 
