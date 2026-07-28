@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Blockchain } from '../src/core/Blockchain.js';
+import { Block } from '../src/core/Block.js';
 import { Wallet } from '../src/wallet/Wallet.js';
 import { Transaction } from '../src/wallet/Transaction.js';
 
@@ -90,5 +91,103 @@ describe('Ledger', () => {
     chain2.minePendingTransactions(miner.address);
     chain2.chain[1].previousHash = 'broken';
     assert.equal(chain2.isValidChain(), false);
+  });
+
+  it('rejects a fake coinbase with wrong reward amount', () => {
+    const chain = new Blockchain({ difficulty: 2 });
+    const miner = Wallet.create();
+    chain.minePendingTransactions(miner.address);
+    const fakeCoinbase = new Transaction({
+      fromAddress: null,
+      toAddress: miner.address,
+      amount: 999999,
+    });
+    const prev = chain.getLatestBlock();
+    const evil = new Block({
+      index: 2,
+      timestamp: Date.now(),
+      transactions: [fakeCoinbase],
+      previousHash: prev.hash,
+    });
+    evil.mine(2);
+    chain.chain.push(evil);
+    assert.equal(chain.isValidChain(), false);
+  });
+
+  it('rejects multiple coinbase transactions in one block', () => {
+    const chain = new Blockchain({ difficulty: 2 });
+    const miner = Wallet.create();
+    const cb1 = new Transaction({
+      fromAddress: null,
+      toAddress: miner.address,
+      amount: 100,
+    });
+    const cb2 = new Transaction({
+      fromAddress: null,
+      toAddress: miner.address,
+      amount: 100,
+    });
+    const prev = chain.getLatestBlock();
+    const block = new Block({
+      index: 1,
+      timestamp: Date.now(),
+      transactions: [cb1, cb2],
+      previousHash: prev.hash,
+    });
+    block.mine(2);
+    chain.chain.push(block);
+    assert.equal(chain.isValidChain(), false);
+  });
+
+  it('rejects overspending inside a validly signed block', () => {
+    const chain = new Blockchain({ difficulty: 2 });
+    const alice = Wallet.create();
+    const bob = Wallet.create();
+    const miner = Wallet.create();
+    chain.minePendingTransactions(alice.address);
+
+    const overspend = new Transaction({
+      fromAddress: alice.address,
+      toAddress: bob.address,
+      amount: 101,
+      timestamp: 1_700_000_000_000,
+    });
+    overspend.sign(alice);
+    const coinbase = new Transaction({
+      fromAddress: null,
+      toAddress: miner.address,
+      amount: 100,
+    });
+    const prev = chain.getLatestBlock();
+    const block = new Block({
+      index: 2,
+      timestamp: Date.now(),
+      transactions: [coinbase, overspend],
+      previousHash: prev.hash,
+    });
+    block.mine(2);
+    chain.chain.push(block);
+    assert.equal(chain.isValidChain(), false);
+  });
+
+  it('rejects mining when a pending transaction was tampered with', () => {
+    const chain = new Blockchain({ difficulty: 2 });
+    const alice = Wallet.create();
+    const bob = Wallet.create();
+    chain.minePendingTransactions(alice.address);
+
+    const tx = new Transaction({
+      fromAddress: alice.address,
+      toAddress: bob.address,
+      amount: 10,
+    });
+    tx.sign(alice);
+    chain.addTransaction(tx);
+    tx.amount = 50;
+
+    assert.throws(
+      () => chain.minePendingTransactions(alice.address),
+      /invalid pending/i,
+    );
   });
 });

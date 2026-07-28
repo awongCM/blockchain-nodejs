@@ -48,6 +48,23 @@ export class Blockchain {
       .reduce((sum, tx) => sum + tx.amount, 0);
   }
 
+  validatePendingTransactions() {
+    for (const tx of this.pendingTransactions) {
+      if (!tx.isValid()) {
+        throw new Error('Invalid pending transaction');
+      }
+    }
+
+    const senders = new Set(
+      this.pendingTransactions.map((tx) => tx.fromAddress),
+    );
+    for (const sender of senders) {
+      if (this.getPendingSpend(sender) > this.getBalance(sender)) {
+        throw new Error('Insufficient funds in pending transactions');
+      }
+    }
+  }
+
   /**
    * @param {Transaction} transaction
    */
@@ -76,6 +93,8 @@ export class Blockchain {
       throw new Error('Miner address required');
     }
 
+    this.validatePendingTransactions();
+
     const rewardTx = new Transaction({
       fromAddress: null,
       toAddress: minerAddress,
@@ -96,6 +115,46 @@ export class Blockchain {
     return block;
   }
 
+  /**
+   * @param {import('../wallet/Transaction.js').Transaction[]} transactions
+   * @returns {boolean}
+   */
+  validateBlockTransactions(transactions, { allowCoinbase = true } = {}) {
+    let coinbaseCount = 0;
+
+    for (let i = 0; i < transactions.length; i += 1) {
+      const tx = transactions[i];
+
+      if (tx.fromAddress === null) {
+        if (!allowCoinbase) {
+          return false;
+        }
+        coinbaseCount += 1;
+        if (coinbaseCount > 1 || i !== 0) {
+          return false;
+        }
+        if (tx.amount !== this.miningReward || !tx.isValid()) {
+          return false;
+        }
+        continue;
+      }
+
+      if (!tx.isValid()) {
+        return false;
+      }
+    }
+
+    if (allowCoinbase) {
+      if (transactions.length === 0 || coinbaseCount !== 1) {
+        return false;
+      }
+    } else if (coinbaseCount > 0) {
+      return false;
+    }
+
+    return true;
+  }
+
   isValidChain() {
     if (this.chain.length === 0) {
       return false;
@@ -105,7 +164,7 @@ export class Blockchain {
     const balances = new Map();
 
     const applyTx = (tx, checkSpend) => {
-      if (!tx.isValid()) {
+      if (tx.fromAddress !== null && !tx.isValid()) {
         return false;
       }
       if (tx.fromAddress !== null) {
@@ -124,6 +183,14 @@ export class Blockchain {
       const current = this.chain[i];
 
       if (i === 0) {
+        if (current.hash !== current.calculateHash()) {
+          return false;
+        }
+        if (!this.validateBlockTransactions(current.transactions, {
+          allowCoinbase: false,
+        })) {
+          return false;
+        }
         for (const tx of current.transactions) {
           if (!applyTx(tx, true)) {
             return false;
@@ -141,6 +208,11 @@ export class Blockchain {
         return false;
       }
       if (!current.hash.startsWith(target)) {
+        return false;
+      }
+      if (!this.validateBlockTransactions(current.transactions, {
+        allowCoinbase: true,
+      })) {
         return false;
       }
 

@@ -42,7 +42,7 @@ export class Transaction {
   }
 
   isValid() {
-    if (typeof this.amount !== 'number' || !(this.amount > 0)) {
+    if (typeof this.amount !== 'number' || !Number.isInteger(this.amount) || !(this.amount > 0)) {
       return false;
     }
     if (!this.toAddress) {

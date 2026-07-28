@@ -17,6 +17,8 @@ npm start
 npm test
 ```
 
+Set `LUCKCOIN_DIFFICULTY=2` for faster local mining (default is 4).
+
 ### Example session
 
 ```

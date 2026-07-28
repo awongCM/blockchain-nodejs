@@ -40,12 +40,14 @@ export function generateKeyPair() {
 
 /**
  * @param {import('node:crypto').KeyObject} privateKey
- * @param {string} hash hex or utf8 message string to sign (treated as utf8 bytes of the string)
+ * @param {string} hashHex SHA-256 digest as hex (from calculateHash)
  * @returns {string} signature hex
+ *
+ * Signs SHA256(utf8(hashHex)) — the digest hex string as UTF-8 bytes, not raw digest bytes.
  */
-export function signHash(privateKey, hash) {
+export function signHash(privateKey, hashHex) {
   const signer = createSign('SHA256');
-  signer.update(hash);
+  signer.update(hashHex);
   signer.end();
   return signer.sign(privateKey, 'hex');
 }

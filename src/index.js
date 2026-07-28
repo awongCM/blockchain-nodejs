@@ -77,7 +77,10 @@ function printChain(blockchain) {
 }
 
 async function runCli() {
-  const blockchain = new Blockchain();
+  const difficulty = Number(process.env.LUCKCOIN_DIFFICULTY ?? 4);
+  const blockchain = new Blockchain({
+    difficulty: Number.isFinite(difficulty) && difficulty > 0 ? difficulty : 4,
+  });
   const rl = createInterface({ input, output });
 
   console.log(BANNER);
@@ -141,8 +144,8 @@ async function runCli() {
             console.log(`Unknown to wallet/address: ${toRef}`);
             break;
           }
-          if (!Number.isFinite(amount) || amount <= 0) {
-            console.log('Amount must be a positive number');
+          if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) {
+            console.log('Amount must be a positive whole number');
             break;
           }
           const tx = new Transaction({

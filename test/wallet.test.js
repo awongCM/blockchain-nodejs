@@ -99,6 +99,19 @@ describe('Transaction', () => {
     assert.equal(tx.isValid(), false);
   });
 
+  it('rejects non-integer amount', () => {
+    const alice = Wallet.create();
+    const bob = Wallet.create();
+    const tx = new Transaction({
+      fromAddress: alice.address,
+      toAddress: bob.address,
+      amount: 1.5,
+      timestamp: 1_700_000_000_000,
+    });
+    tx.sign(alice);
+    assert.equal(tx.isValid(), false);
+  });
+
   it('rejects forged signature', () => {
     const alice = Wallet.create();
     const bob = Wallet.create();
