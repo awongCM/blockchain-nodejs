@@ -1,4 +1,5 @@
 import { sha256 } from './CryptoUtils.js';
+import { Transaction } from '../wallet/Transaction.js';
 
 export class Block {
   /**
@@ -57,5 +58,22 @@ export class Block {
       nonce: this.nonce,
       hash: this.hash,
     };
+  }
+
+  /**
+   * @param {object} data
+   * @returns {Block}
+   */
+  static fromJSON(data) {
+    return new Block({
+      index: data.index,
+      timestamp: data.timestamp,
+      transactions: (data.transactions ?? []).map((tx) =>
+        typeof tx?.calculateHash === 'function' ? tx : Transaction.fromJSON(tx),
+      ),
+      previousHash: data.previousHash,
+      nonce: data.nonce ?? 0,
+      hash: data.hash ?? '',
+    });
   }
 }

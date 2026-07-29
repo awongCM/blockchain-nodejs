@@ -17,10 +17,39 @@ export class Blockchain {
   createGenesisBlock() {
     return new Block({
       index: 0,
-      timestamp: Date.now(),
+      timestamp: 0,
       transactions: [],
       previousHash: '0',
     });
+  }
+
+  /**
+   * Replace the local chain with a longer valid peer chain.
+   * @param {Array<object|Block>} chainData
+   * @returns {boolean}
+   */
+  replaceChain(chainData) {
+    if (!Array.isArray(chainData) || chainData.length <= this.chain.length) {
+      return false;
+    }
+
+    const candidate = chainData.map((block) =>
+      typeof block?.calculateHash === 'function' ? block : Block.fromJSON(block),
+    );
+
+    const probe = new Blockchain({
+      difficulty: this.difficulty,
+      miningReward: this.miningReward,
+    });
+    probe.chain = candidate;
+
+    if (!probe.isValidChain()) {
+      return false;
+    }
+
+    this.chain = candidate;
+    this.pendingTransactions = [];
+    return true;
   }
 
   getLatestBlock() {
