@@ -2,13 +2,12 @@
 
 A Node.js proof-of-concept blockchain inspired by the **Maneki-neko** (招き猫) — the beckoning lucky cat of East Asian tradition. LuckCoin is a learning project that implements core blockchain concepts step by step.
 
-## Phase 2 — Transactions & Wallets
+## Phase 3 — Multi-Node Network
 
-- **Wallet** — in-memory ECDSA secp256k1 keypairs with addresses
-- **Transaction** — signed transfers and coinbase rewards
-- **Mempool** — pending transactions validated before mining
-- **Blockchain** — account balances via chain replay; mining pays 100 LuckCoin + pending txs
-- **CLI** — create wallets, send coins, mine, and check balances
+- **HTTP API** — stdlib `node:http` REST endpoints for chain, mempool, mine, and peers
+- **Peer sync** — register nodes, broadcast transactions/blocks, resolve with longest valid chain
+- **Shared genesis** — deterministic genesis block so fresh nodes share a common root
+- **Wallets & ledger** — Phase 2 signed transfers, mempool, and coinbase rewards (still in-memory per process)
 
 ## Quick start
 
@@ -19,7 +18,7 @@ npm test
 
 Set `LUCKCOIN_DIFFICULTY=2` for faster local mining (default is 4).
 
-### Example session
+### Single-node CLI session
 
 ```
 luckcoin> wallet create alice
@@ -31,6 +30,33 @@ luckcoin> balance alice
 luckcoin> balance bob
 luckcoin> validate
 ```
+
+### Two-node sync
+
+Terminal A:
+
+```bash
+LUCKCOIN_DIFFICULTY=2 LUCKCOIN_PORT=3001 LUCKCOIN_LISTEN=1 npm start
+```
+
+```
+luckcoin> wallet create alice
+luckcoin> mine alice
+```
+
+Terminal B:
+
+```bash
+LUCKCOIN_DIFFICULTY=2 LUCKCOIN_PORT=3002 LUCKCOIN_URL=http://127.0.0.1:3002 LUCKCOIN_LISTEN=1 npm start
+```
+
+```
+luckcoin> peers add http://127.0.0.1:3001
+luckcoin> sync
+luckcoin> chain
+```
+
+Or auto-listen with `npm start -- --listen`.
 
 ### CLI commands
 
@@ -44,7 +70,26 @@ luckcoin> validate
 | `balance <name\|address>` | Show chain balance |
 | `chain` | Print the full blockchain |
 | `validate` | Check whether the chain is valid |
+| `listen [port]` | Start HTTP API (`0.0.0.0`, honors `PORT`) |
+| `peers` | List peer URLs |
+| `peers add <url>` | Register a peer |
+| `sync` | Resolve conflicts (longest valid chain) |
+| `url` | Show this node's advertised URL |
 | `help` | Show available commands |
+
+### HTTP API
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/chain` | Full chain + length |
+| `GET` | `/transactions` | Pending mempool |
+| `POST` | `/transactions` | Submit a signed transaction |
+| `POST` | `/mine` | Body `{ "minerAddress" }` |
+| `POST` | `/blocks` | Accept a tip-extension block |
+| `GET` | `/balance/:address` | Account balance |
+| `GET` | `/nodes` | Peer list |
+| `POST` | `/nodes/register` | Body `{ "nodes": ["http://..."] }` |
+| `GET` | `/nodes/resolve` | Conflict resolution |
 
 ## Project structure
 
@@ -57,14 +102,17 @@ src/
 ├── wallet/
 │   ├── Wallet.js
 │   └── Transaction.js
+├── network/
+│   ├── Node.js
+│   └── HttpServer.js
 └── index.js
 ```
 
 ## Roadmap
 
 1. **Phase 1** — Core chain ✓
-2. **Phase 2** — Transactions and wallets (current)
-3. **Phase 3** — Multi-node P2P network
+2. **Phase 2** — Transactions and wallets ✓
+3. **Phase 3** — Multi-node P2P network (current)
 4. **Phase 4** — Simple smart contracts
 
 ## Cursor skill
