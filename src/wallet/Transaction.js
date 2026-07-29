@@ -70,4 +70,18 @@ export class Transaction {
       signature: this.signature,
     };
   }
+
+  /**
+   * @param {object} data
+   * @returns {Transaction}
+   */
+  static fromJSON(data) {
+    return new Transaction({
+      fromAddress: data.fromAddress ?? null,
+      toAddress: data.toAddress,
+      amount: data.amount,
+      timestamp: data.timestamp,
+      signature: data.signature ?? null,
+    });
+  }
 }

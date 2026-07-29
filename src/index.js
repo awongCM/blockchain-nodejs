@@ -3,11 +3,13 @@ import { stdin as input, stdout as output } from 'node:process';
 import { Blockchain } from './core/Blockchain.js';
 import { Wallet } from './wallet/Wallet.js';
 import { Transaction } from './wallet/Transaction.js';
+import { LuckCoinNode, normalizePeerUrl } from './network/Node.js';
+import { startHttpServer } from './network/HttpServer.js';
 
 const BANNER = `
-  🐱 LuckCoin — Phase 2
+  🐱 LuckCoin — Phase 3
   ─────────────────────
-  Wallets, signed transactions, and mining rewards.
+  Multi-node HTTP sync with longest-chain consensus.
 `;
 
 const HELP = `
@@ -20,6 +22,11 @@ Commands:
   balance <name|address>   Show chain balance
   chain                    Show the full blockchain
   validate                 Check chain integrity
+  listen [port]            Start HTTP API (default 3001 / PORT)
+  peers                    List peer URLs
+  peers add <url>          Register a peer (and announce self)
+  sync                     Resolve conflicts with peers
+  url                      Show this node's advertised URL
   help                     Show this help message
   exit                     Quit
 `;
@@ -76,15 +83,57 @@ function printChain(blockchain) {
   console.log('');
 }
 
+function defaultPort() {
+  const raw = process.env.PORT ?? process.env.LUCKCOIN_PORT ?? '3001';
+  const port = Number(raw);
+  return Number.isFinite(port) && port >= 0 ? port : 3001;
+}
+
 async function runCli() {
   const difficulty = Number(process.env.LUCKCOIN_DIFFICULTY ?? 4);
   const blockchain = new Blockchain({
     difficulty: Number.isFinite(difficulty) && difficulty > 0 ? difficulty : 4,
   });
+
+  const initialPort = defaultPort();
+  const advertised =
+    process.env.LUCKCOIN_URL ?? `http://127.0.0.1:${initialPort}`;
+  const node = new LuckCoinNode({
+    blockchain,
+    url: normalizePeerUrl(advertised),
+  });
+
+  /** @type {{ close: () => Promise<void>, port: number } | null} */
+  let http = null;
+
+  async function ensureListening(port = defaultPort()) {
+    if (http) {
+      console.log(`Already listening on ${node.url}`);
+      return;
+    }
+    http = await startHttpServer({
+      node,
+      port,
+      host: '0.0.0.0',
+    });
+    if (!process.env.LUCKCOIN_URL) {
+      node.url = `http://127.0.0.1:${http.port}`;
+    }
+    console.log(`HTTP API listening on 0.0.0.0:${http.port}`);
+    console.log(`Advertised URL: ${node.url}`);
+  }
+
   const rl = createInterface({ input, output });
 
   console.log(BANNER);
   console.log('Genesis block created. Type "help" for commands.\n');
+
+  const autoListen =
+    process.env.LUCKCOIN_LISTEN === '1' ||
+    process.argv.includes('--listen');
+  if (autoListen) {
+    await ensureListening();
+  }
 
   let running = true;
   let walletCounter = 1;
@@ -155,6 +204,7 @@ async function runCli() {
           });
           tx.sign(fromWallet);
           blockchain.addTransaction(tx);
+          await node.broadcastTransaction(tx);
           console.log(`Queued transfer of ${amount} to ${shortAddr(toAddress)}`);
           break;
         }
@@ -185,6 +235,7 @@ async function runCli() {
           }
           const start = Date.now();
           const block = blockchain.minePendingTransactions(minerAddress);
+          await node.broadcastBlock(block);
           console.log(
             `Mined block #${block.index} in ${Date.now() - start}ms (${block.transactions.length} txs)`,
           );
@@ -219,6 +270,67 @@ async function runCli() {
           );
           break;
 
+        case 'listen': {
+          const portRaw = rest[0];
+          const port = portRaw === undefined ? defaultPort() : Number(portRaw);
+          if (!Number.isFinite(port) || port < 0) {
+            console.log('Usage: listen [port]');
+            break;
+          }
+          await ensureListening(port);
+          break;
+        }
+
+        case 'peers': {
+          if (rest[0]?.toLowerCase() === 'add') {
+            const peerUrl = rest[1];
+            if (!peerUrl) {
+              console.log('Usage: peers add <url>');
+              break;
+            }
+            const normalized = normalizePeerUrl(peerUrl);
+            if (!node.registerPeer(normalized)) {
+              console.log(
+                `Peer rejected (self, invalid, disallowed, or limit reached): ${peerUrl}`,
+              );
+              break;
+            }
+            try {
+              await fetch(`${normalized}/nodes/register`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ node: node.url }),
+              });
+            } catch {
+              console.log('Peer registered locally (remote announce failed)');
+            }
+            console.log(`Peer added: ${normalized}`);
+            break;
+          }
+          if (node.peers.size === 0) {
+            console.log('No peers registered.');
+            break;
+          }
+          for (const peer of node.peers) {
+            console.log(peer);
+          }
+          break;
+        }
+
+        case 'sync': {
+          const result = await node.resolveConflicts();
+          console.log(
+            result.replaced
+              ? `Chain replaced. Length: ${result.length}`
+              : `Chain unchanged. Length: ${result.length}`,
+          );
+          break;
+        }
+
+        case 'url':
+          console.log(node.url);
+          break;
+
         case 'help':
           console.log(HELP);
           break;
@@ -236,6 +348,9 @@ async function runCli() {
     }
   }
 
+  if (http) {
+    await http.close();
+  }
   rl.close();
 }
 

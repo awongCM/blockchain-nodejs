@@ -45,19 +45,21 @@ Use this structure:
 
 #### A. One-line summary
 
-What the project is (e.g. "LuckCoin — Node.js PoC blockchain, Phase 1 core chain").
+What the project is (e.g. "LuckCoin — Node.js PoC blockchain, Phase 3 multi-node HTTP network").
 
 #### B. Architecture snapshot
 
 A compact tree or bullet list of the **important** paths only:
 
 ```
-src/core/     Block, Blockchain, CryptoUtils
-src/index.js  Interactive CLI
-test/         Node test runner
+src/core/      Block, Blockchain, CryptoUtils
+src/wallet/    Wallet, Transaction
+src/network/   LuckCoinNode, HttpServer
+src/index.js   Interactive CLI (+ optional HTTP listen)
+test/          Node test runner
 ```
 
-Explain how pieces connect in 2–4 sentences (linked-list blocks → chain → CLI).
+Explain how pieces connect in 2–4 sentences (ledger → HTTP peers → longest-chain sync → CLI).
 
 #### C. How to run (high level)
 
@@ -65,7 +67,8 @@ List every applicable run path discovered in the repo. For **this project** (Luc
 
 | Mode | Command | What you get |
 |---|---|---|
-| **CLI** | `npm start` | Interactive `luckcoin>` prompt — mine, chain, validate |
+| **CLI** | `npm start` | Interactive `luckcoin>` prompt — wallets, mine, peers, sync |
+| **HTTP node** | `LUCKCOIN_LISTEN=1 npm start` | CLI + REST API on `0.0.0.0:$PORT` |
 | **Tests** | `npm test` | Node built-in test runner |
 | **Web server** | `npm run server` | Dashboard at http://localhost:3000 *(if `src/server.js` exists on branch)* |
 | **Demo** | `npm run demo` | Non-interactive mining demo *(if script exists)* |
@@ -77,15 +80,16 @@ Only include rows that exist on the **current branch**. Note if richer features 
 #### D. Prerequisites
 
 - Node.js >= 18 (from `package.json` engines)
-- No install step required unless dependencies are added later — pure Node stdlib for Phase 1
+- No install step required — pure Node stdlib through Phase 3
 
 #### E. Key CLI commands *(if CLI app)*
 
 | Command | Action |
 |---|---|
-| `chain` | Print blockchain |
-| `mine <data>` | Mine a block |
-| `validate` | Check chain integrity |
+| `wallet create [name]` | Create in-memory wallet |
+| `send` / `mine` / `balance` | Ledger ops |
+| `listen` / `peers` / `sync` | Multi-node HTTP |
+| `chain` / `validate` | Inspect integrity |
 | `exit` | Quit |
 
 ### 4. Optional — show code highlights
@@ -113,6 +117,7 @@ If `README.md` lists phases/roadmap, mention current phase and what's next in on
 ## LuckCoin-specific notes
 
 - **Phase 1 (`cursor/luckcoin-phase1-a3b5`)**: CLI + core chain only (free-form block data)
-- **Phase 2 (`cursor/luckcoin-phase2-3ad5` / master after merge)**: wallets, signed transactions, mempool, coinbase mining rewards
-- **Extended branch (`cursor/luckcoin-docker-cloud-a3b5`)**: Phase 1 web dashboard + Docker + Render + Cloud Agent config (not yet updated for Phase 2)
+- **Phase 2 (`cursor/luckcoin-phase2-3ad5` / master)**: wallets, signed transactions, mempool, coinbase mining rewards
+- **Phase 3 (`cursor/luckcoin-phase3-8426` / master after merge)**: HTTP multi-node sync, peer register/resolve, longest valid chain
+- **Extended branch (`cursor/luckcoin-docker-cloud-a3b5`)**: Phase 1 web dashboard + Docker + Render + Cloud Agent config (not yet updated for Phase 2/3)
 - Mining uses Proof of Work; default difficulty is 4 (slower). Tests use difficulty 2
