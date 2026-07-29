@@ -1,9 +1,13 @@
 import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { Block } from '../src/core/Block.js';
 import { Blockchain } from '../src/core/Blockchain.js';
 import { Transaction } from '../src/wallet/Transaction.js';
 import { Wallet } from '../src/wallet/Wallet.js';
-import { LuckCoinNode } from '../src/network/Node.js';
+import {
+  LuckCoinNode,
+  isAllowedPeerUrl,
+} from '../src/network/Node.js';
 import { createNodeServer } from '../src/network/HttpServer.js';
 
 describe('Phase 3 chain sync primitives', () => {
@@ -25,6 +29,59 @@ describe('Phase 3 chain sync primitives', () => {
     );
     assert.equal(b.chain.length, a.chain.length);
     assert.equal(b.replaceChain([b.chain[0].toJSON()]), false);
+  });
+
+  it('replaceChain rejects a chain with a different genesis', () => {
+    const local = new Blockchain({ difficulty: 2 });
+    const altGenesis = new Block({
+      index: 0,
+      timestamp: 999,
+      transactions: [],
+      previousHash: '0',
+    });
+    assert.notEqual(altGenesis.hash, local.chain[0].hash);
+
+    const altChain = new Blockchain({ difficulty: 2 });
+    altChain.chain[0] = altGenesis;
+    const miner = Wallet.create();
+    altChain.minePendingTransactions(miner.address);
+
+    assert.equal(
+      local.replaceChain(altChain.chain.map((block) => block.toJSON())),
+      false,
+    );
+    assert.equal(local.chain.length, 1);
+  });
+
+  it('replaceChain rejects a longer invalid chain', () => {
+    const a = new Blockchain({ difficulty: 2 });
+    const b = new Blockchain({ difficulty: 2 });
+    const miner = Wallet.create();
+    a.minePendingTransactions(miner.address);
+    const tampered = a.chain.map((block) => block.toJSON());
+    tampered[1].hash = '0'.repeat(64);
+    assert.equal(b.replaceChain(tampered), false);
+    assert.equal(b.chain.length, 1);
+  });
+
+  it('rejects replaying a transaction already in the chain', () => {
+    const chain = new Blockchain({ difficulty: 2 });
+    const alice = Wallet.create();
+    const bob = Wallet.create();
+    chain.minePendingTransactions(alice.address);
+    const tx = new Transaction({
+      fromAddress: alice.address,
+      toAddress: bob.address,
+      amount: 25,
+    });
+    tx.sign(alice);
+    chain.addTransaction(tx);
+    chain.minePendingTransactions(alice.address);
+    assert.throws(
+      () => chain.addTransaction(Transaction.fromJSON(tx.toJSON())),
+      /Transaction already mined/,
+    );
+    assert.equal(chain.getBalance(bob.address), 25);
   });
 
   it('Transaction.fromJSON preserves validity', () => {
@@ -68,6 +125,17 @@ describe('LuckCoinNode', () => {
     node.registerPeer('http://127.0.0.1:3002');
     node.registerPeer('http://127.0.0.1:3002/');
     assert.deepEqual([...node.peers], ['http://127.0.0.1:3002']);
+  });
+
+  it('registerPeer rejects disallowed URLs', () => {
+    const node = new LuckCoinNode({
+      blockchain: new Blockchain({ difficulty: 2 }),
+      url: 'http://127.0.0.1:3001',
+    });
+    assert.equal(isAllowedPeerUrl('http://169.254.169.254/latest/meta-data'), false);
+    assert.equal(node.registerPeer('http://169.254.169.254'), false);
+    assert.equal(node.registerPeer('ftp://127.0.0.1:3002'), false);
+    assert.equal(node.peers.size, 0);
   });
 });
 
@@ -156,12 +224,18 @@ describe('HTTP multi-node', () => {
     });
     assert.equal(txRes.status, 201);
 
-    // Allow broadcast to settle
-    await new Promise((r) => setTimeout(r, 50));
+    const deadline = Date.now() + 2000;
+    let pendingB = { transactions: [] };
+    while (Date.now() < deadline) {
+      pendingB = await fetch(
+        `http://127.0.0.1:${b.port}/transactions`,
+      ).then((r) => r.json());
+      if (pendingB.transactions.length === 1) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 25));
+    }
 
-    const pendingB = await fetch(
-      `http://127.0.0.1:${b.port}/transactions`,
-    ).then((r) => r.json());
     assert.equal(pendingB.transactions.length, 1);
     assert.equal(pendingB.transactions[0].amount, 25);
   });
@@ -182,5 +256,37 @@ describe('HTTP multi-node', () => {
     assert.equal(response.status, 400);
     const body = await response.json();
     assert.ok(body.error);
+  });
+
+  it('rejects an invalid block extension with 409', async () => {
+    const a = await startNode();
+    const response = await fetch(`http://127.0.0.1:${a.port}/blocks`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        index: 99,
+        timestamp: Date.now(),
+        transactions: [],
+        previousHash: 'not-the-tip',
+        nonce: 0,
+        hash: '0'.repeat(64),
+      }),
+    });
+    assert.equal(response.status, 409);
+    const body = await response.json();
+    assert.equal(body.error, 'Block rejected');
+  });
+
+  it('rejects disallowed peer registration over HTTP', async () => {
+    const a = await startNode();
+    const response = await fetch(`http://127.0.0.1:${a.port}/nodes/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ node: 'http://169.254.169.254' }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.nodes, []);
+    assert.deepEqual(body.rejected, ['http://169.254.169.254']);
   });
 });

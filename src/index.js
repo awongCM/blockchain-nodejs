@@ -288,9 +288,15 @@ async function runCli() {
               console.log('Usage: peers add <url>');
               break;
             }
-            node.registerPeer(peerUrl);
+            const normalized = normalizePeerUrl(peerUrl);
+            if (!node.registerPeer(normalized)) {
+              console.log(
+                `Peer rejected (self, invalid, disallowed, or limit reached): ${peerUrl}`,
+              );
+              break;
+            }
             try {
-              await fetch(`${normalizePeerUrl(peerUrl)}/nodes/register`, {
+              await fetch(`${normalized}/nodes/register`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ node: node.url }),
@@ -298,7 +304,7 @@ async function runCli() {
             } catch {
               console.log('Peer registered locally (remote announce failed)');
             }
-            console.log(`Peer added: ${normalizePeerUrl(peerUrl)}`);
+            console.log(`Peer added: ${normalized}`);
             break;
           }
           if (node.peers.size === 0) {

@@ -2,6 +2,10 @@ import { Blockchain } from '../core/Blockchain.js';
 import { Block } from '../core/Block.js';
 import { Transaction } from '../wallet/Transaction.js';
 
+export const MAX_PEERS = 32;
+export const FETCH_TIMEOUT_MS = 5000;
+const MAX_BODY_BYTES = 1024 * 1024;
+
 /**
  * Normalize a peer base URL (no trailing slash).
  * @param {string} url
@@ -11,29 +15,129 @@ export function normalizePeerUrl(url) {
   return String(url).trim().replace(/\/+$/, '');
 }
 
+/**
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isAllowedPeerUrl(url) {
+  try {
+    const parsed = new URL(normalizePeerUrl(url));
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'localhost' || host === '::1' || host.endsWith('.localhost')) {
+      return true;
+    }
+    if (host === '169.254.169.254') {
+      return false;
+    }
+
+    const ipv4Match = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number);
+      if (a === 127) {
+        return true;
+      }
+      if (a === 10) {
+        return true;
+      }
+      if (a === 192 && b === 168) {
+        return true;
+      }
+      if (a === 172 && b >= 16 && b <= 31) {
+        return true;
+      }
+      return false;
+    }
+
+    // Non-IP hostnames are blocked for the PoC to avoid SSRF to internal DNS names.
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {import('node:http').IncomingMessage} req
+ * @param {number} [maxBytes]
+ * @returns {Promise<any>}
+ */
+export async function readJsonBody(req, maxBytes = MAX_BODY_BYTES) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxBytes) {
+      const error = new Error('Payload too large');
+      error.code = 'PAYLOAD_TOO_LARGE';
+      throw error;
+    }
+    chunks.push(chunk);
+  }
+  if (chunks.length === 0) {
+    return {};
+  }
+  const raw = Buffer.concat(chunks).toString('utf8');
+  if (!raw.trim()) {
+    return {};
+  }
+  return JSON.parse(raw);
+}
+
 export class LuckCoinNode {
   /**
    * @param {object} options
    * @param {import('../core/Blockchain.js').Blockchain} options.blockchain
    * @param {string} options.url Advertised base URL for this node
    * @param {(input: string, init?: RequestInit) => Promise<Response>} [options.fetchImpl]
+   * @param {number} [options.fetchTimeoutMs]
    */
-  constructor({ blockchain, url, fetchImpl = globalThis.fetch.bind(globalThis) }) {
+  constructor({
+    blockchain,
+    url,
+    fetchImpl = globalThis.fetch.bind(globalThis),
+    fetchTimeoutMs = FETCH_TIMEOUT_MS,
+  }) {
     this.blockchain = blockchain;
     this.url = normalizePeerUrl(url);
     this.peers = new Set();
     this.fetchImpl = fetchImpl;
+    this.fetchTimeoutMs = fetchTimeoutMs;
   }
 
   /**
    * @param {string} peerUrl
+   * @param {RequestInit} [init]
+   */
+  fetchPeer(peerUrl, init = {}) {
+    return this.fetchImpl(peerUrl, {
+      ...init,
+      signal: AbortSignal.timeout(this.fetchTimeoutMs),
+    });
+  }
+
+  /**
+   * @param {string} peerUrl
+   * @returns {boolean}
    */
   registerPeer(peerUrl) {
     const normalized = normalizePeerUrl(peerUrl);
     if (!normalized || normalized === this.url) {
-      return;
+      return false;
+    }
+    if (!isAllowedPeerUrl(normalized)) {
+      return false;
+    }
+    if (this.peers.size >= MAX_PEERS && !this.peers.has(normalized)) {
+      return false;
     }
     this.peers.add(normalized);
+    return true;
   }
 
   /**
@@ -79,17 +183,19 @@ export class LuckCoinNode {
         ? txData
         : Transaction.fromJSON(txData);
 
-    const hash = tx.calculateHash();
-    if (
-      this.blockchain.pendingTransactions.some(
-        (pending) => pending.calculateHash() === hash,
-      )
-    ) {
-      return false;
+    try {
+      this.blockchain.addTransaction(tx);
+      return true;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === 'Transaction already pending' ||
+          error.message === 'Transaction already mined')
+      ) {
+        return false;
+      }
+      throw error;
     }
-
-    this.blockchain.addTransaction(tx);
-    return true;
   }
 
   /**
@@ -99,7 +205,7 @@ export class LuckCoinNode {
     const body = JSON.stringify(tx.toJSON());
     await Promise.allSettled(
       [...this.peers].map((peer) =>
-        this.fetchImpl(`${peer}/transactions`, {
+        this.fetchPeer(`${peer}/transactions`, {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
@@ -118,7 +224,7 @@ export class LuckCoinNode {
     const body = JSON.stringify(block.toJSON());
     await Promise.allSettled(
       [...this.peers].map((peer) =>
-        this.fetchImpl(`${peer}/blocks`, {
+        this.fetchPeer(`${peer}/blocks`, {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
@@ -141,7 +247,7 @@ export class LuckCoinNode {
     await Promise.all(
       [...this.peers].map(async (peer) => {
         try {
-          const response = await this.fetchImpl(`${peer}/chain`);
+          const response = await this.fetchPeer(`${peer}/chain`);
           if (!response.ok) {
             return;
           }
@@ -156,7 +262,11 @@ export class LuckCoinNode {
             miningReward: this.blockchain.miningReward,
           });
           temp.chain = chain.map((block) => Block.fromJSON(block));
-          if (temp.isValidChain() && temp.chain.length > bestLength) {
+          if (
+            temp.chain[0].hash === this.blockchain.chain[0].hash &&
+            temp.isValidChain() &&
+            temp.chain.length > bestLength
+          ) {
             bestLength = temp.chain.length;
             bestChain = chain;
           }

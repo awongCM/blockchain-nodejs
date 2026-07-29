@@ -1,24 +1,10 @@
 import { createServer } from 'node:http';
-import { LuckCoinNode, normalizePeerUrl } from './Node.js';
-
-/**
- * @param {import('node:http').IncomingMessage} req
- * @returns {Promise<any>}
- */
-async function readJson(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  if (chunks.length === 0) {
-    return {};
-  }
-  const raw = Buffer.concat(chunks).toString('utf8');
-  if (!raw.trim()) {
-    return {};
-  }
-  return JSON.parse(raw);
-}
+import {
+  LuckCoinNode,
+  normalizePeerUrl,
+  readJsonBody,
+  isAllowedPeerUrl,
+} from './Node.js';
 
 /**
  * @param {import('node:http').ServerResponse} res
@@ -83,7 +69,7 @@ export function startHttpServer({
       }
 
       if (method === 'POST' && pathname === '/transactions') {
-        const body = await readJson(req);
+        const body = await readJsonBody(req);
         const added = node.receiveTransaction(body);
         const origin = req.headers['x-luckcoin-origin'];
         if (added && origin !== node.url) {
@@ -99,7 +85,7 @@ export function startHttpServer({
       }
 
       if (method === 'POST' && pathname === '/mine') {
-        const body = await readJson(req);
+        const body = await readJsonBody(req);
         const minerAddress = body.minerAddress;
         if (!minerAddress || typeof minerAddress !== 'string') {
           sendJson(res, 400, { error: 'minerAddress required' });
@@ -112,7 +98,7 @@ export function startHttpServer({
       }
 
       if (method === 'POST' && pathname === '/blocks') {
-        const body = await readJson(req);
+        const body = await readJsonBody(req);
         const accepted = node.receiveBlock(body);
         if (!accepted) {
           sendJson(res, 409, { error: 'Block rejected' });
@@ -141,16 +127,22 @@ export function startHttpServer({
       }
 
       if (method === 'POST' && pathname === '/nodes/register') {
-        const body = await readJson(req);
+        const body = await readJsonBody(req);
         const list = Array.isArray(body.nodes)
           ? body.nodes
           : body.node
             ? [body.node]
             : [];
+        const rejected = [];
         for (const peer of list) {
-          node.registerPeer(peer);
+          if (!node.registerPeer(peer)) {
+            rejected.push(peer);
+          }
         }
-        sendJson(res, 200, { nodes: [...node.peers] });
+        sendJson(res, 200, {
+          nodes: [...node.peers],
+          rejected,
+        });
         return;
       }
 
@@ -165,12 +157,12 @@ export function startHttpServer({
 
       sendJson(res, 404, { error: 'Not found' });
     } catch (error) {
+      if (error instanceof Error && error.code === 'PAYLOAD_TOO_LARGE') {
+        sendJson(res, 413, { error: 'Payload too large' });
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Bad request';
-      const status =
-        message.includes('JSON') || message.includes('Unexpected')
-          ? 400
-          : 400;
-      sendJson(res, status, { error: message });
+      sendJson(res, 400, { error: message });
     }
   });
 
@@ -220,11 +212,11 @@ export async function createNodeServer({
 
   const listening = await startHttpServer({ node, port: resolvedPort, host });
 
-  if (!url && !process.env.LUCKCOIN_URL && resolvedPort === 0) {
-    node.url = `http://127.0.0.1:${listening.port}`;
-  } else if (!url && !process.env.LUCKCOIN_URL) {
+  if (!url && !process.env.LUCKCOIN_URL) {
     node.url = `http://127.0.0.1:${listening.port}`;
   }
 
   return { node, ...listening };
 }
+
+export { isAllowedPeerUrl };

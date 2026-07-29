@@ -37,6 +37,10 @@ export class Blockchain {
       typeof block?.calculateHash === 'function' ? block : Block.fromJSON(block),
     );
 
+    if (candidate[0].hash !== this.chain[0].hash) {
+      return false;
+    }
+
     const probe = new Blockchain({
       difficulty: this.difficulty,
       miningReward: this.miningReward,
@@ -50,6 +54,22 @@ export class Blockchain {
     this.chain = candidate;
     this.pendingTransactions = [];
     return true;
+  }
+
+  /**
+   * @param {Transaction} transaction
+   * @returns {boolean}
+   */
+  hasTransactionInChain(transaction) {
+    const hash = transaction.calculateHash();
+    for (const block of this.chain) {
+      for (const tx of block.transactions) {
+        if (tx.calculateHash() === hash) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   getLatestBlock() {
@@ -103,6 +123,17 @@ export class Blockchain {
     }
     if (!transaction.isValid()) {
       throw new Error('Invalid transaction');
+    }
+    const hash = transaction.calculateHash();
+    if (this.hasTransactionInChain(transaction)) {
+      throw new Error('Transaction already mined');
+    }
+    if (
+      this.pendingTransactions.some(
+        (pending) => pending.calculateHash() === hash,
+      )
+    ) {
+      throw new Error('Transaction already pending');
     }
     const available =
       this.getBalance(transaction.fromAddress) -
@@ -212,6 +243,9 @@ export class Blockchain {
       const current = this.chain[i];
 
       if (i === 0) {
+        if (current.index !== 0 || current.previousHash !== '0') {
+          return false;
+        }
         if (current.hash !== current.calculateHash()) {
           return false;
         }
