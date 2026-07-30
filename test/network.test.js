@@ -174,7 +174,7 @@ describe('HTTP multi-node', () => {
     assert.equal(health.status, 200);
     const healthBody = await health.json();
     assert.equal(healthBody.status, 'ok');
-    assert.equal(healthBody.phase, 3);
+    assert.equal(healthBody.phase, 4);
 
     const validate = await fetch(`http://127.0.0.1:${a.port}/validate`);
     assert.equal(validate.status, 200);

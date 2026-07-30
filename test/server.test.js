@@ -61,7 +61,7 @@ describe('Dashboard HTTP server', () => {
     const body = await res.json();
     assert.equal(body.status, 'ok');
     assert.equal(body.blocks, 1);
-    assert.equal(body.phase, 3);
+    assert.equal(body.phase, 4);
   });
 
   it('GET /chain returns genesis block', async () => {

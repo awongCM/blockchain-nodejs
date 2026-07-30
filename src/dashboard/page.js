@@ -1,5 +1,5 @@
 /**
- * Render the LuckCoin web dashboard HTML (Phase 3 ledger API).
+ * Render the LuckCoin web dashboard HTML (Phase 4 ledger + contracts API).
  *
  * @param {object} config
  * @param {number} config.difficulty
@@ -100,7 +100,7 @@ export function renderDashboardPage({ difficulty, minerAddress }) {
 <body>
   <header>
     <h1>🐱 LuckCoin</h1>
-    <p>Phase 3 — ledger dashboard (coinbase + mempool mining)</p>
+    <p>Phase 4 — ledger dashboard (coinbase + mempool mining + contracts)</p>
   </header>
   <main>
     <div class="panel">
