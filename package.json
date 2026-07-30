@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node src/index.js",
     "start:listen": "LUCKCOIN_LISTEN=1 node src/index.js",
+    "server": "node src/server.js",
+    "demo": "LUCKCOIN_DIFFICULTY=2 node src/server.js",
     "test": "node --test"
   },
   "keywords": [

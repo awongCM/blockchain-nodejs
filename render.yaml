@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: luckcoin
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: LUCKCOIN_DIFFICULTY
+        value: "2"
+      - key: NODE_ENV
+        value: production

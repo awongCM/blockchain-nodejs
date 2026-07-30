@@ -70,6 +70,27 @@ luckcoin> chain
 
 Or auto-listen with `npm start -- --listen`.
 
+### Web dashboard + Docker
+
+Run the Maneki-neko themed dashboard (Phase 3 ledger API under the hood):
+
+```bash
+npm run server          # → http://localhost:3000
+npm run demo            # same, with LUCKCOIN_DIFFICULTY=2
+docker compose up --build
+```
+
+| Endpoint | Description |
+|---|---|
+| `GET /` | Web dashboard (HTML) |
+| `GET /health` | Health check for Docker/Render |
+| `GET /validate` | Chain validity `{ valid }` |
+| `GET /chain` | Full chain JSON |
+| `POST /mine` | Body `{ "minerAddress" }` — coinbase + mempool |
+| `GET /transactions` | Pending mempool |
+
+See [AGENTS.md](AGENTS.md) for Cursor Cloud Agent setup with nested Docker.
+
 ### CLI commands
 
 | Command | Description |
