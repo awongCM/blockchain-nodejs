@@ -168,6 +168,20 @@ describe('HTTP multi-node', () => {
     assert.equal(body.chain[0].timestamp, 0);
   });
 
+  it('GET /health and /validate respond on API server', async () => {
+    const a = await startNode();
+    const health = await fetch(`http://127.0.0.1:${a.port}/health`);
+    assert.equal(health.status, 200);
+    const healthBody = await health.json();
+    assert.equal(healthBody.status, 'ok');
+    assert.equal(healthBody.phase, 4);
+
+    const validate = await fetch(`http://127.0.0.1:${a.port}/validate`);
+    assert.equal(validate.status, 200);
+    const validateBody = await validate.json();
+    assert.equal(validateBody.valid, true);
+  });
+
   it('mine on A then resolve on B syncs the chain', async () => {
     const a = await startNode();
     const b = await startNode();

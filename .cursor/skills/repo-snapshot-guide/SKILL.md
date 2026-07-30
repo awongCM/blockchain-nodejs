@@ -45,7 +45,7 @@ Use this structure:
 
 #### A. One-line summary
 
-What the project is (e.g. "LuckCoin — Node.js PoC blockchain, Phase 3 multi-node HTTP network").
+What the project is (e.g. "LuckCoin — Node.js PoC blockchain, Phase 4 smart contracts + multi-node HTTP network").
 
 #### B. Architecture snapshot
 
@@ -121,5 +121,5 @@ If `README.md` lists phases/roadmap, mention current phase and what's next in on
 - **Phase 2 (`cursor/luckcoin-phase2-3ad5` / master)**: wallets, signed transactions, mempool, coinbase mining rewards
 - **Phase 3 (`cursor/luckcoin-phase3-8426` / master)**: HTTP multi-node sync, peer register/resolve, longest valid chain
 - **Phase 4 (`cursor/luckcoin-phase4-a9a8` / master after merge)**: deploy/call txs, method-opcode VM, `GET /contracts`, CLI deploy/call
-- **Extended branch (`cursor/luckcoin-docker-cloud-a3b5`)**: Phase 1 web dashboard + Docker + Render + Cloud Agent config (not yet updated for Phase 2/3/4)
+- **Extended branch (`cursor/luckcoin-docker-cloud-a9a8`)**: Phase 4 web dashboard + Docker + Render + Cloud Agent config (`npm run server`, `docker compose up`)
 - Mining uses Proof of Work; default difficulty is 4 (slower). Tests use difficulty 2

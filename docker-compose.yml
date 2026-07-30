@@ -1,0 +1,10 @@
+services:
+  luckcoin:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      HOST: 0.0.0.0
+      LUCKCOIN_DIFFICULTY: 2
+    restart: unless-stopped
