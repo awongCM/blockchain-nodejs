@@ -1,4 +1,5 @@
 import { sha256, verifySignature } from '../core/CryptoUtils.js';
+import { validateMethodBody } from '../contract/opcodes.js';
 
 const METHOD_NAME = /^[a-zA-Z_][a-zA-Z0-9_]{0,31}$/;
 
@@ -25,14 +26,8 @@ export function isValidCode(code) {
     if (!METHOD_NAME.test(name)) {
       return false;
     }
-    const body = code[name];
-    if (!Array.isArray(body) || body.length === 0 || body.length > 32) {
+    if (!validateMethodBody(code[name])) {
       return false;
-    }
-    for (const inst of body) {
-      if (!Array.isArray(inst) || inst.length === 0 || typeof inst[0] !== 'string') {
-        return false;
-      }
     }
   }
   return true;

@@ -2,12 +2,13 @@
 
 A Node.js proof-of-concept blockchain inspired by the **Maneki-neko** (招き猫) — the beckoning lucky cat of East Asian tradition. LuckCoin is a learning project that implements core blockchain concepts step by step.
 
-## Phase 3 — Multi-Node Network
+## Phase 4 — Simple Smart Contracts
 
-- **HTTP API** — stdlib `node:http` REST endpoints for chain, mempool, mine, and peers
-- **Peer sync** — register nodes, broadcast transactions/blocks, resolve with longest valid chain
-- **Shared genesis** — deterministic genesis block so fresh nodes share a common root
-- **Wallets & ledger** — Phase 2 signed transfers, mempool, and coinbase rewards (still in-memory per process)
+- **Deploy / call txs** — typed transactions (`transfer` | `deploy` | `call`) with on-chain method programs
+- **Tiny opcode VM** — straight-line stack programs (`push`, `load`, `store`, `add`, `transfer`, …)
+- **Chain-derived state** — contract code and storage rebuilt by replaying the ledger (syncs with Phase 3 peers)
+- **HTTP inspect** — `GET /contracts` and `GET /contracts/:address`
+- **Wallets & network** — Phase 2/3 ledger and multi-node sync unchanged underneath
 
 ## Quick start
 
@@ -22,13 +23,24 @@ Set `LUCKCOIN_DIFFICULTY=2` for faster local mining (default is 4).
 
 ```
 luckcoin> wallet create alice
-luckcoin> wallet create bob
 luckcoin> mine alice
+luckcoin> deploy alice 0 {"inc":[["load","n"],["push",1],["add"],["store","n"]]}
+luckcoin> mine alice
+luckcoin> contracts
+luckcoin> call alice <contractAddress> inc
+luckcoin> mine alice
+luckcoin> contract <contractAddress>
+luckcoin> validate
+```
+
+### Transfers (still supported)
+
+```
+luckcoin> wallet create bob
 luckcoin> send alice bob 25
 luckcoin> mine alice
 luckcoin> balance alice
 luckcoin> balance bob
-luckcoin> validate
 ```
 
 ### Two-node sync
@@ -65,6 +77,10 @@ Or auto-listen with `npm start -- --listen`.
 | `wallet create [name]` | Create an in-memory wallet |
 | `wallets` | List session wallets |
 | `send <from> <to> <amount>` | Sign and enqueue a transfer |
+| `deploy <from> <amount> <codeJson>` | Deploy contract code (amount may be `0`) |
+| `call <from> <contract> <method> [amount] [argsJson]` | Call a contract method |
+| `contract <address>` | Show code, storage, and balance |
+| `contracts` | List contract addresses on chain |
 | `pending` | Show mempool |
 | `mine <miner>` | Mine coinbase reward + pending transactions |
 | `balance <name\|address>` | Show chain balance |
@@ -83,13 +99,32 @@ Or auto-listen with `npm start -- --listen`.
 |---|---|---|
 | `GET` | `/chain` | Full chain + length |
 | `GET` | `/transactions` | Pending mempool |
-| `POST` | `/transactions` | Submit a signed transaction |
+| `POST` | `/transactions` | Submit a signed transaction (including deploy/call) |
 | `POST` | `/mine` | Body `{ "minerAddress" }` |
 | `POST` | `/blocks` | Accept a tip-extension block |
 | `GET` | `/balance/:address` | Account balance |
+| `GET` | `/contracts` | List contract addresses |
+| `GET` | `/contracts/:address` | Contract code, storage, balance |
 | `GET` | `/nodes` | Peer list |
 | `POST` | `/nodes/register` | Body `{ "nodes": ["http://..."] }` |
 | `GET` | `/nodes/resolve` | Conflict resolution |
+
+### Example contract
+
+Increment a storage counter:
+
+```json
+{
+  "inc": [
+    ["load", "n"],
+    ["push", 1],
+    ["add"],
+    ["store", "n"]
+  ]
+}
+```
+
+Contract addresses are 64-char SHA-256 hex (distinct from longer SPKI wallet addresses).
 
 ## Project structure
 
@@ -102,6 +137,10 @@ src/
 ├── wallet/
 │   ├── Wallet.js
 │   └── Transaction.js
+├── contract/
+│   ├── opcodes.js
+│   ├── VirtualMachine.js
+│   └── ContractAccount.js
 ├── network/
 │   ├── Node.js
 │   └── HttpServer.js
@@ -112,8 +151,13 @@ src/
 
 1. **Phase 1** — Core chain ✓
 2. **Phase 2** — Transactions and wallets ✓
-3. **Phase 3** — Multi-node P2P network (current)
-4. **Phase 4** — Simple smart contracts
+3. **Phase 3** — Multi-node P2P network ✓
+4. **Phase 4** — Simple smart contracts (current)
+
+## Design docs
+
+- Spec: `docs/superpowers/specs/2026-07-30-luckcoin-phase4-design.md`
+- Plan: `docs/superpowers/plans/2026-07-30-luckcoin-phase4.md`
 
 ## Cursor skill
 

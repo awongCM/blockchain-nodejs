@@ -80,7 +80,7 @@ Only include rows that exist on the **current branch**. Note if richer features 
 #### D. Prerequisites
 
 - Node.js >= 18 (from `package.json` engines)
-- No install step required — pure Node stdlib through Phase 3
+- No install step required — pure Node stdlib through Phase 4
 
 #### E. Key CLI commands *(if CLI app)*
 
@@ -88,6 +88,7 @@ Only include rows that exist on the **current branch**. Note if richer features 
 |---|---|
 | `wallet create [name]` | Create in-memory wallet |
 | `send` / `mine` / `balance` | Ledger ops |
+| `deploy` / `call` / `contract` | Smart contracts |
 | `listen` / `peers` / `sync` | Multi-node HTTP |
 | `chain` / `validate` | Inspect integrity |
 | `exit` | Quit |
@@ -118,6 +119,7 @@ If `README.md` lists phases/roadmap, mention current phase and what's next in on
 
 - **Phase 1 (`cursor/luckcoin-phase1-a3b5`)**: CLI + core chain only (free-form block data)
 - **Phase 2 (`cursor/luckcoin-phase2-3ad5` / master)**: wallets, signed transactions, mempool, coinbase mining rewards
-- **Phase 3 (`cursor/luckcoin-phase3-8426` / master after merge)**: HTTP multi-node sync, peer register/resolve, longest valid chain
-- **Extended branch (`cursor/luckcoin-docker-cloud-a3b5`)**: Phase 1 web dashboard + Docker + Render + Cloud Agent config (not yet updated for Phase 2/3)
+- **Phase 3 (`cursor/luckcoin-phase3-8426` / master)**: HTTP multi-node sync, peer register/resolve, longest valid chain
+- **Phase 4 (`cursor/luckcoin-phase4-a9a8` / master after merge)**: deploy/call txs, method-opcode VM, `GET /contracts`, CLI deploy/call
+- **Extended branch (`cursor/luckcoin-docker-cloud-a3b5`)**: Phase 1 web dashboard + Docker + Render + Cloud Agent config (not yet updated for Phase 2/3/4)
 - Mining uses Proof of Work; default difficulty is 4 (slower). Tests use difficulty 2
