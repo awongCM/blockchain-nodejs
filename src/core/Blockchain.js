@@ -1,5 +1,8 @@
 import { Block } from './Block.js';
-import { Transaction } from '../wallet/Transaction.js';
+import { Transaction, isValidCode } from '../wallet/Transaction.js';
+import { ContractAccount } from '../contract/ContractAccount.js';
+import { executeMethod } from '../contract/VirtualMachine.js';
+import { cloneStorage } from '../contract/opcodes.js';
 
 export class Blockchain {
   /**
@@ -76,19 +79,191 @@ export class Blockchain {
     return this.chain[this.chain.length - 1];
   }
 
-  getBalance(address) {
-    let balance = 0;
+  /**
+   * @param {Map<string, ContractAccount>} contracts
+   * @returns {Map<string, ContractAccount>}
+   */
+  static cloneContracts(contracts) {
+    const copy = new Map();
+    for (const [address, contract] of contracts) {
+      copy.set(
+        address,
+        new ContractAccount({
+          address: contract.address,
+          code: contract.code,
+          storage: cloneStorage(contract.storage),
+        }),
+      );
+    }
+    return copy;
+  }
+
+  /**
+   * Apply one transaction to mutable balance/contract maps.
+   * @param {Transaction} tx
+   * @param {Map<string, number>} balances
+   * @param {Map<string, ContractAccount>} contracts
+   */
+  applyTransaction(tx, balances, contracts) {
+    const type = tx.type ?? 'transfer';
+
+    if (tx.fromAddress === null) {
+      if (type !== 'transfer' || tx.data !== null) {
+        throw new Error('Invalid coinbase transaction');
+      }
+      if (typeof tx.amount !== 'number' || !(tx.amount > 0) || !tx.toAddress) {
+        throw new Error('Invalid coinbase transaction');
+      }
+      balances.set(tx.toAddress, (balances.get(tx.toAddress) ?? 0) + tx.amount);
+      return;
+    }
+
+    if (!tx.isValid()) {
+      throw new Error('Invalid transaction');
+    }
+
+    if (type === 'transfer') {
+      const fromBal = balances.get(tx.fromAddress) ?? 0;
+      if (tx.amount > fromBal) {
+        throw new Error('Insufficient funds');
+      }
+      balances.set(tx.fromAddress, fromBal - tx.amount);
+      balances.set(tx.toAddress, (balances.get(tx.toAddress) ?? 0) + tx.amount);
+      return;
+    }
+
+    if (type === 'deploy') {
+      if (!isValidCode(tx.data?.code)) {
+        throw new Error('Invalid contract code');
+      }
+      if (contracts.has(tx.toAddress)) {
+        throw new Error('Contract already exists');
+      }
+      const fromBal = balances.get(tx.fromAddress) ?? 0;
+      if (tx.amount > fromBal) {
+        throw new Error('Insufficient funds');
+      }
+      balances.set(tx.fromAddress, fromBal - tx.amount);
+      contracts.set(
+        tx.toAddress,
+        new ContractAccount({
+          address: tx.toAddress,
+          code: tx.data.code,
+          storage: {},
+        }),
+      );
+      balances.set(tx.toAddress, (balances.get(tx.toAddress) ?? 0) + tx.amount);
+      return;
+    }
+
+    if (type === 'call') {
+      const contract = contracts.get(tx.toAddress);
+      if (!contract) {
+        throw new Error('Unknown contract');
+      }
+      const fromBal = balances.get(tx.fromAddress) ?? 0;
+      if (tx.amount > fromBal) {
+        throw new Error('Insufficient funds');
+      }
+      balances.set(tx.fromAddress, fromBal - tx.amount);
+
+      const result = executeMethod({
+        code: contract.code,
+        storage: contract.storage,
+        balance: balances.get(tx.toAddress) ?? 0,
+        fromAddress: tx.fromAddress,
+        amount: tx.amount,
+        method: tx.data.method,
+        args: tx.data.args ?? [],
+      });
+
+      contract.storage = result.storage;
+      balances.set(tx.toAddress, result.balance);
+      for (const effect of result.effects) {
+        balances.set(effect.to, (balances.get(effect.to) ?? 0) + effect.amount);
+      }
+      return;
+    }
+
+    throw new Error(`Unknown transaction type: ${type}`);
+  }
+
+  /**
+   * @param {object} [options]
+   * @param {boolean} [options.includePending=false]
+   * @returns {{ balances: Map<string, number>, contracts: Map<string, ContractAccount> }}
+   */
+  replayState({ includePending = false } = {}) {
+    /** @type {Map<string, number>} */
+    const balances = new Map();
+    /** @type {Map<string, ContractAccount>} */
+    const contracts = new Map();
+
     for (const block of this.chain) {
       for (const tx of block.transactions) {
-        if (tx.fromAddress === address) {
-          balance -= tx.amount;
-        }
-        if (tx.toAddress === address) {
-          balance += tx.amount;
-        }
+        this.applyTransaction(tx, balances, contracts);
       }
     }
-    return balance;
+
+    if (includePending) {
+      for (const tx of this.pendingTransactions) {
+        this.applyTransaction(tx, balances, contracts);
+      }
+    }
+
+    return { balances, contracts };
+  }
+
+  /**
+   * Replay chain state; returns null when apply fails (invalid local chain).
+   * @param {object} [options]
+   * @param {boolean} [options.includePending=false]
+   * @returns {{ balances: Map<string, number>, contracts: Map<string, ContractAccount> } | null}
+   */
+  tryReplayState(options = {}) {
+    try {
+      return this.replayState(options);
+    } catch {
+      return null;
+    }
+  }
+
+  getBalance(address) {
+    const state = this.tryReplayState();
+    if (!state) {
+      throw new Error('Invalid chain state');
+    }
+    return state.balances.get(address) ?? 0;
+  }
+
+  /**
+   * @param {string} address
+   * @returns {{ address: string, code: object, storage: object, balance: number } | null}
+   */
+  getContract(address) {
+    const state = this.tryReplayState();
+    if (!state) {
+      return null;
+    }
+    const contract = state.contracts.get(address);
+    if (!contract) {
+      return null;
+    }
+    return {
+      ...contract.toJSON(),
+      balance: state.balances.get(address) ?? 0,
+    };
+  }
+
+  /**
+   * @returns {string[]}
+   */
+  listContracts() {
+    const state = this.tryReplayState();
+    if (!state) {
+      return [];
+    }
+    return [...state.contracts.keys()].sort();
   }
 
   getPendingSpend(address) {
@@ -104,13 +279,12 @@ export class Blockchain {
       }
     }
 
-    const senders = new Set(
-      this.pendingTransactions.map((tx) => tx.fromAddress),
-    );
-    for (const sender of senders) {
-      if (this.getPendingSpend(sender) > this.getBalance(sender)) {
-        throw new Error('Insufficient funds in pending transactions');
-      }
+    const { balances, contracts } = this.replayState();
+    const workingBalances = new Map(balances);
+    const workingContracts = Blockchain.cloneContracts(contracts);
+
+    for (const tx of this.pendingTransactions) {
+      this.applyTransaction(tx, workingBalances, workingContracts);
     }
   }
 
@@ -135,12 +309,16 @@ export class Blockchain {
     ) {
       throw new Error('Transaction already pending');
     }
-    const available =
-      this.getBalance(transaction.fromAddress) -
-      this.getPendingSpend(transaction.fromAddress);
-    if (transaction.amount > available) {
-      throw new Error('Insufficient funds');
+
+    const { balances, contracts } = this.replayState();
+    const workingBalances = new Map(balances);
+    const workingContracts = Blockchain.cloneContracts(contracts);
+
+    for (const pending of this.pendingTransactions) {
+      this.applyTransaction(pending, workingBalances, workingContracts);
     }
+
+    this.applyTransaction(transaction, workingBalances, workingContracts);
     this.pendingTransactions.push(transaction);
   }
 
@@ -221,23 +399,10 @@ export class Blockchain {
     }
 
     const target = '0'.repeat(this.difficulty);
+    /** @type {Map<string, number>} */
     const balances = new Map();
-
-    const applyTx = (tx, checkSpend) => {
-      if (tx.fromAddress !== null && !tx.isValid()) {
-        return false;
-      }
-      if (tx.fromAddress !== null) {
-        const fromBal = balances.get(tx.fromAddress) ?? 0;
-        if (checkSpend && tx.amount > fromBal) {
-          return false;
-        }
-        balances.set(tx.fromAddress, fromBal - tx.amount);
-      }
-      const toBal = balances.get(tx.toAddress) ?? 0;
-      balances.set(tx.toAddress, toBal + tx.amount);
-      return true;
-    };
+    /** @type {Map<string, ContractAccount>} */
+    const contracts = new Map();
 
     for (let i = 0; i < this.chain.length; i += 1) {
       const current = this.chain[i];
@@ -249,15 +414,19 @@ export class Blockchain {
         if (current.hash !== current.calculateHash()) {
           return false;
         }
-        if (!this.validateBlockTransactions(current.transactions, {
-          allowCoinbase: false,
-        })) {
+        if (
+          !this.validateBlockTransactions(current.transactions, {
+            allowCoinbase: false,
+          })
+        ) {
           return false;
         }
-        for (const tx of current.transactions) {
-          if (!applyTx(tx, true)) {
-            return false;
+        try {
+          for (const tx of current.transactions) {
+            this.applyTransaction(tx, balances, contracts);
           }
+        } catch {
+          return false;
         }
         continue;
       }
@@ -273,16 +442,20 @@ export class Blockchain {
       if (!current.hash.startsWith(target)) {
         return false;
       }
-      if (!this.validateBlockTransactions(current.transactions, {
-        allowCoinbase: true,
-      })) {
+      if (
+        !this.validateBlockTransactions(current.transactions, {
+          allowCoinbase: true,
+        })
+      ) {
         return false;
       }
 
-      for (const tx of current.transactions) {
-        if (!applyTx(tx, true)) {
-          return false;
+      try {
+        for (const tx of current.transactions) {
+          this.applyTransaction(tx, balances, contracts);
         }
+      } catch {
+        return false;
       }
     }
 

@@ -43,11 +43,31 @@ export function startHttpServer({
       if (method === 'GET' && pathname === '/') {
         sendJson(res, 200, {
           name: 'LuckCoin',
-          phase: 3,
+          phase: 4,
           url: node.url,
           peers: [...node.peers],
           length: node.blockchain.chain.length,
         });
+        return;
+      }
+
+      if (method === 'GET' && pathname === '/contracts') {
+        sendJson(res, 200, {
+          contracts: node.blockchain.listContracts(),
+        });
+        return;
+      }
+
+      const contractMatch = pathname.match(/^\/contracts\/([0-9a-fA-F]+)$/);
+      if (method === 'GET' && contractMatch) {
+        const contract = node.blockchain.getContract(
+          contractMatch[1].toLowerCase(),
+        );
+        if (!contract) {
+          sendJson(res, 404, { error: 'Contract not found' });
+          return;
+        }
+        sendJson(res, 200, contract);
         return;
       }
 
@@ -114,9 +134,16 @@ export function startHttpServer({
           sendJson(res, 400, { error: 'address required' });
           return;
         }
+        let balance;
+        try {
+          balance = node.blockchain.getBalance(address);
+        } catch {
+          sendJson(res, 503, { error: 'Invalid chain state' });
+          return;
+        }
         sendJson(res, 200, {
           address,
-          balance: node.blockchain.getBalance(address),
+          balance,
         });
         return;
       }
