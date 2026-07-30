@@ -1,6 +1,6 @@
 # LuckCoin Phase 2 — Transactions & Wallets Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add in-memory wallets, signed transactions, a mempool, and coinbase+mempool mining so LuckCoin is an account-based ledger.
 
@@ -40,7 +40,7 @@
 - Modify: `src/core/CryptoUtils.js`
 - Test: `test/wallet.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/wallet.test.js`:
 
@@ -79,13 +79,13 @@ describe('CryptoUtils ECDSA', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test test/wallet.test.js`
 
 Expected: FAIL — `generateKeyPair` / `signHash` / `verifySignature` not exported
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Append to `src/core/CryptoUtils.js` (keep existing `sha256` / `meetsDifficulty`):
 
@@ -150,13 +150,13 @@ export function verifySignature(address, hash, signatureHex) {
 
 Update the top import in `CryptoUtils.js` to include the new `node:crypto` symbols (replace the existing single `createHash` import).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test test/wallet.test.js`
 
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/core/CryptoUtils.js test/wallet.test.js
@@ -171,7 +171,7 @@ git commit -m "feat: add ECDSA secp256k1 helpers to CryptoUtils"
 - Create: `src/wallet/Wallet.js`
 - Modify: `test/wallet.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `test/wallet.test.js`:
 
@@ -195,13 +195,13 @@ describe('Wallet', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test test/wallet.test.js`
 
 Expected: FAIL — cannot find module `Wallet.js`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `src/wallet/Wallet.js`:
 
@@ -233,13 +233,13 @@ export class Wallet {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test test/wallet.test.js`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wallet/Wallet.js test/wallet.test.js
@@ -254,7 +254,7 @@ git commit -m "feat: add in-memory Wallet with ECDSA signing"
 - Create: `src/wallet/Transaction.js`
 - Modify: `test/wallet.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `test/wallet.test.js`:
 
@@ -327,13 +327,13 @@ describe('Transaction', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test test/wallet.test.js`
 
 Expected: FAIL — cannot find module `Transaction.js`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `src/wallet/Transaction.js`:
 
@@ -413,13 +413,13 @@ export class Transaction {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test test/wallet.test.js`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wallet/Transaction.js test/wallet.test.js
@@ -434,7 +434,7 @@ git commit -m "feat: add Transaction with sign and isValid"
 - Modify: `src/core/Block.js`
 - Modify: `test/blockchain.test.js`
 
-- [ ] **Step 1: Update blockchain tests for transactions (failing against old Block)**
+- [x] **Step 1: Update blockchain tests for transactions (failing against old Block)**
 
 Replace the `Block` and adjust `Blockchain` sections in `test/blockchain.test.js` so blocks use `transactions` instead of `data`. For this task, only change Block tests (Blockchain tests will fail until Task 5 — either update them in Task 5, or temporarily skip Blockchain describe). Prefer: rewrite Block tests now; leave Blockchain tests updated in the same edit to use transactions but expect failures until Task 5.
 
@@ -499,13 +499,13 @@ describe('Block', () => {
 
 Also change existing Blockchain tests that call `addBlock('...')` — for now rewrite them to skip or comment that Task 5 will replace; simplest path: replace entire `describe('Blockchain')` body with a single placeholder `it.todo('phase2 ledger')` temporarily, then flesh out in Task 5. Prefer keeping CryptoUtils tests unchanged.
 
-- [ ] **Step 2: Run Block tests to verify failure**
+- [x] **Step 2: Run Block tests to verify failure**
 
 Run: `node --test test/blockchain.test.js`
 
 Expected: FAIL — `transactions` / old `data` mismatch
 
-- [ ] **Step 3: Write minimal Block implementation**
+- [x] **Step 3: Write minimal Block implementation**
 
 Replace `src/core/Block.js` with:
 
@@ -573,13 +573,13 @@ export class Block {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `node --test test/blockchain.test.js test/wallet.test.js`
 
 Expected: Block + wallet tests PASS; Blockchain section may be todo/failing until Task 5
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/core/Block.js test/blockchain.test.js
@@ -595,7 +595,7 @@ git commit -m "feat: hash Block from transactions array"
 - Create: `test/ledger.test.js`
 - Modify: `test/blockchain.test.js` (restore Blockchain tests for genesis / validity)
 
-- [ ] **Step 1: Write failing ledger tests**
+- [x] **Step 1: Write failing ledger tests**
 
 Create `test/ledger.test.js`:
 
@@ -698,13 +698,13 @@ describe('Ledger', () => {
 
 Restore `describe('Blockchain')` in `test/blockchain.test.js` to genesis + `isValidChain` happy path using `minePendingTransactions` (no `addBlock`).
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `node --test test/ledger.test.js`
 
 Expected: FAIL — missing `minePendingTransactions` / `getBalance` / `addTransaction`
 
-- [ ] **Step 3: Write minimal Blockchain implementation**
+- [x] **Step 3: Write minimal Blockchain implementation**
 
 Replace `src/core/Blockchain.js` with:
 
@@ -871,7 +871,7 @@ export class Blockchain {
 }
 ```
 
-- [ ] **Step 4: Run all tests**
+- [x] **Step 4: Run all tests**
 
 Run: `node --test`
 
@@ -879,7 +879,7 @@ Expected: ALL PASS
 
 Fix balance assertion if off: after first mine Alice=100; send 40 pending; second mine Alice gets +100 reward and −40 = 160; Bob = 40.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/core/Blockchain.js test/ledger.test.js test/blockchain.test.js
@@ -893,7 +893,7 @@ git commit -m "feat: add mempool, balances, and coinbase mining"
 **Files:**
 - Modify: `src/index.js`
 
-- [ ] **Step 1: Write a smoke check script expectation (manual / light test)**
+- [x] **Step 1: Write a smoke check script expectation (manual / light test)**
 
 No separate CLI unit test required; after implementing, run a non-interactive smoke via stdin:
 
@@ -903,13 +903,13 @@ printf 'wallet create alice\nwallet create bob\nmine alice\nsend alice bob 25\nm
 
 Expected: alice balance 175 (100+100-25), bob 25, chain valid.
 
-- [ ] **Step 2: Confirm current CLI is still Phase 1 (old commands)**
+- [x] **Step 2: Confirm current CLI is still Phase 1 (old commands)**
 
 Run: `printf 'help\nexit\n' | npm start`
 
 Expected: still shows `mine <data>` (pre-change baseline)
 
-- [ ] **Step 3: Implement Phase 2 CLI**
+- [x] **Step 3: Implement Phase 2 CLI**
 
 Replace `src/index.js` with Phase 2 commands:
 
@@ -1158,7 +1158,7 @@ runCli().catch((error) => {
 });
 ```
 
-- [ ] **Step 4: Run smoke + full tests**
+- [x] **Step 4: Run smoke + full tests**
 
 Run:
 
@@ -1169,7 +1169,7 @@ printf 'wallet create alice\nwallet create bob\nmine alice\nsend alice bob 25\nm
 
 Expected: tests PASS; balances 175 / 25; valid chain
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/index.js
@@ -1184,15 +1184,15 @@ git commit -m "feat: Phase 2 CLI for wallets, send, and mining"
 - Modify: `README.md`
 - Modify: `.cursor/skills/repo-snapshot-guide/SKILL.md` (Phase notes only, if present)
 
-- [ ] **Step 1: Update README to Phase 2**
+- [x] **Step 1: Update README to Phase 2**
 
 Replace Phase 1–centric sections with Phase 2: structure includes `src/wallet/`, CLI table matches new commands, roadmap marks Phase 2 current / Phase 1 done. Keep quick start `npm start` / `npm test`.
 
-- [ ] **Step 2: Update skill note**
+- [x] **Step 2: Update skill note**
 
 In `.cursor/skills/repo-snapshot-guide/SKILL.md`, change LuckCoin-specific notes so Phase 2 on `cursor/luckcoin-phase2-3ad5` / master-after-merge includes wallets; Phase 1 was CLI+core only.
 
-- [ ] **Step 3: Run final verification**
+- [x] **Step 3: Run final verification**
 
 ```bash
 node --test
@@ -1201,14 +1201,14 @@ printf 'help\nexit\n' | npm start
 
 Expected: all tests pass; help shows Phase 2 commands
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md .cursor/skills/repo-snapshot-guide/SKILL.md
 git commit -m "docs: update README and skill notes for Phase 2"
 ```
 
-- [ ] **Step 5: Push branch**
+- [x] **Step 5: Push branch**
 
 ```bash
 git push -u origin cursor/luckcoin-phase2-3ad5
