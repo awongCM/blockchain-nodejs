@@ -97,7 +97,7 @@ describe('Dashboard HTTP server', () => {
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /LuckCoin/);
-    assert.match(html, /Phase 3/);
+    assert.match(html, /Phase 4/);
     assert.match(html, /createElement/);
     assert.doesNotMatch(html, /innerHTML\s*=/);
   });

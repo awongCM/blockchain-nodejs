@@ -119,7 +119,6 @@ If `README.md` lists phases/roadmap, mention current phase and what's next in on
 
 - **Phase 1 (`cursor/luckcoin-phase1-a3b5`)**: CLI + core chain only (free-form block data)
 - **Phase 2 (`cursor/luckcoin-phase2-3ad5` / master)**: wallets, signed transactions, mempool, coinbase mining rewards
-<<<<<<< HEAD
 - **Phase 3 (`cursor/luckcoin-phase3-8426` / master)**: HTTP multi-node sync, peer register/resolve, longest valid chain
 - **Phase 4 (`cursor/luckcoin-phase4-a9a8` / master after merge)**: deploy/call txs, method-opcode VM, `GET /contracts`, CLI deploy/call
 - **Extended branch (`cursor/luckcoin-docker-cloud-a9a8`)**: Phase 4 web dashboard + Docker + Render + Cloud Agent config (`npm run server`, `docker compose up`)
