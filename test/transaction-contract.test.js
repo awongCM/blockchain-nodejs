@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Transaction } from '../src/wallet/Transaction.js';
 import { Wallet } from '../src/wallet/Wallet.js';
+import { Blockchain } from '../src/core/Blockchain.js';
+import { validateInstruction } from '../src/contract/opcodes.js';
 
 describe('Phase 4 Transaction', () => {
   it('defaults to transfer with null data', () => {
@@ -70,5 +72,100 @@ describe('Phase 4 Transaction', () => {
     });
     tx.sign(alice);
     assert.equal(tx.isValid(), true);
+  });
+
+  it('rejects non-finite and non-integer call args', () => {
+    const alice = Wallet.create();
+    const addr = 'ab'.repeat(32);
+    for (const args of [[NaN], [Infinity], [1.5], [null]]) {
+      const tx = new Transaction({
+        fromAddress: alice.address,
+        toAddress: addr,
+        amount: 0,
+        timestamp: 1_700_000_000_000,
+        type: 'call',
+        data: { method: 'inc', args },
+      });
+      tx.sign(alice);
+      assert.equal(tx.isValid(), false, `expected invalid for ${String(args)}`);
+    }
+  });
+
+  it('call args survive JSON wire round-trip and stay valid', () => {
+    const alice = Wallet.create();
+    const addr = 'cd'.repeat(32);
+    const tx = new Transaction({
+      fromAddress: alice.address,
+      toAddress: addr,
+      amount: 0,
+      timestamp: 1_700_000_000_000,
+      type: 'call',
+      data: { method: 'inc', args: [42, 'memo'] },
+    });
+    tx.sign(alice);
+    const copy = Transaction.fromJSON(JSON.parse(JSON.stringify(tx.toJSON())));
+    assert.equal(copy.isValid(), true);
+    assert.equal(copy.calculateHash(), tx.calculateHash());
+  });
+
+  it('rejects deploy code that stores to __proto__', () => {
+    assert.equal(
+      validateInstruction(['store', '__proto__']),
+      false,
+    );
+    const alice = Wallet.create();
+    const code = { bad: [['push', 1], ['store', '__proto__']] };
+    const timestamp = 1_700_000_000_000;
+    const toAddress = Transaction.deployAddress(alice.address, timestamp, code);
+    const tx = new Transaction({
+      fromAddress: alice.address,
+      toAddress,
+      amount: 0,
+      timestamp,
+      type: 'deploy',
+      data: { code },
+    });
+    tx.sign(alice);
+    assert.equal(tx.isValid(), false);
+  });
+});
+
+describe('Phase 4 wire sync', () => {
+  it('rejects peer replace when a mined call used invalid args locally', () => {
+    const CODE = { set: [['store', 'n']] };
+    const a = new Blockchain({ difficulty: 2 });
+    const b = new Blockchain({ difficulty: 2 });
+    const alice = Wallet.create();
+    a.minePendingTransactions(alice.address);
+
+    const ts = 1_700_000_000_500;
+    const addr = Transaction.deployAddress(alice.address, ts, CODE);
+    const deploy = new Transaction({
+      fromAddress: alice.address,
+      toAddress: addr,
+      amount: 0,
+      timestamp: ts,
+      type: 'deploy',
+      data: { code: CODE },
+    });
+    deploy.sign(alice);
+    a.addTransaction(deploy);
+    a.minePendingTransactions(alice.address);
+
+    const call = new Transaction({
+      fromAddress: alice.address,
+      toAddress: addr,
+      amount: 0,
+      timestamp: 1_700_000_000_600,
+      type: 'call',
+      data: { method: 'set', args: [NaN] },
+    });
+    call.sign(alice);
+    assert.equal(call.isValid(), false);
+    assert.throws(() => a.addTransaction(call), /invalid/i);
+    assert.equal(
+      b.replaceChain(JSON.parse(JSON.stringify(a.toJSON()))),
+      true,
+    );
   });
 });

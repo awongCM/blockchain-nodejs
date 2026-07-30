@@ -363,4 +363,80 @@ describe('HTTP multi-node', () => {
     assert.deepEqual(contract.storage, {});
     assert.equal(contract.balance, 0);
   });
+
+  it('syncs contract storage after call across nodes', async () => {
+    const a = await startNode();
+    const b = await startNode();
+    const alice = Wallet.create();
+    const code = {
+      inc: [
+        ['load', 'n'],
+        ['push', 1],
+        ['add'],
+        ['store', 'n'],
+      ],
+    };
+
+    a.node.registerPeer(b.node.url);
+    b.node.registerPeer(a.node.url);
+
+    await fetch(`http://127.0.0.1:${a.port}/mine`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ minerAddress: alice.address }),
+    });
+    await fetch(`http://127.0.0.1:${b.port}/nodes/resolve`);
+
+    const timestamp = 1_700_000_000_200;
+    const toAddress = Transaction.deployAddress(alice.address, timestamp, code);
+    const deploy = new Transaction({
+      fromAddress: alice.address,
+      toAddress,
+      amount: 0,
+      timestamp,
+      type: 'deploy',
+      data: { code },
+    });
+    deploy.sign(alice);
+
+    await fetch(`http://127.0.0.1:${a.port}/transactions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(deploy.toJSON()),
+    });
+    await fetch(`http://127.0.0.1:${a.port}/mine`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ minerAddress: alice.address }),
+    });
+
+    const call = new Transaction({
+      fromAddress: alice.address,
+      toAddress,
+      amount: 0,
+      timestamp: 1_700_000_000_201,
+      type: 'call',
+      data: { method: 'inc', args: [] },
+    });
+    call.sign(alice);
+
+    await fetch(`http://127.0.0.1:${a.port}/transactions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(call.toJSON()),
+    });
+    await fetch(`http://127.0.0.1:${a.port}/mine`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ minerAddress: alice.address }),
+    });
+    await fetch(`http://127.0.0.1:${b.port}/nodes/resolve`);
+
+    const contractRes = await fetch(
+      `http://127.0.0.1:${b.port}/contracts/${toAddress}`,
+    );
+    assert.equal(contractRes.status, 200);
+    const contract = await contractRes.json();
+    assert.equal(contract.storage.n, 1);
+  });
 });

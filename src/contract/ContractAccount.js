@@ -1,3 +1,5 @@
+import { cloneStorage } from '../contract/opcodes.js';
+
 export class ContractAccount {
   /**
    * @param {object} params
@@ -8,7 +10,7 @@ export class ContractAccount {
   constructor({ address, code, storage = {} }) {
     this.address = address;
     this.code = code;
-    this.storage = storage;
+    this.storage = cloneStorage(storage);
   }
 
   toJSON() {

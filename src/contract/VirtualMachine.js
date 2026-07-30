@@ -2,7 +2,8 @@ import {
   MAX_STACK,
   MAX_STEPS,
   MAX_STORAGE_KEYS,
-  STORAGE_KEY,
+  cloneStorage,
+  isValidStorageKey,
   validateMethodBody,
 } from './opcodes.js';
 
@@ -41,7 +42,7 @@ export function executeMethod({
   }
 
   /** @type {Record<string, number|string>} */
-  const nextStorage = { ...storage };
+  const nextStorage = cloneStorage(storage);
   /** @type {{ to: string, amount: number }[]} */
   const effects = [];
   let steps = 0;
@@ -76,7 +77,7 @@ export function executeMethod({
         break;
       case 'store': {
         const value = pop();
-        if (!STORAGE_KEY.test(arg)) {
+        if (!isValidStorageKey(arg)) {
           throw new Error('Invalid storage key');
         }
         if (

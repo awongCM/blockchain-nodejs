@@ -2,6 +2,7 @@ import { Block } from './Block.js';
 import { Transaction, isValidCode } from '../wallet/Transaction.js';
 import { ContractAccount } from '../contract/ContractAccount.js';
 import { executeMethod } from '../contract/VirtualMachine.js';
+import { cloneStorage } from '../contract/opcodes.js';
 
 export class Blockchain {
   /**
@@ -90,7 +91,7 @@ export class Blockchain {
         new ContractAccount({
           address: contract.address,
           code: contract.code,
-          storage: { ...contract.storage },
+          storage: cloneStorage(contract.storage),
         }),
       );
     }
@@ -213,9 +214,26 @@ export class Blockchain {
     return { balances, contracts };
   }
 
+  /**
+   * Replay chain state; returns null when apply fails (invalid local chain).
+   * @param {object} [options]
+   * @param {boolean} [options.includePending=false]
+   * @returns {{ balances: Map<string, number>, contracts: Map<string, ContractAccount> } | null}
+   */
+  tryReplayState(options = {}) {
+    try {
+      return this.replayState(options);
+    } catch {
+      return null;
+    }
+  }
+
   getBalance(address) {
-    const { balances } = this.replayState();
-    return balances.get(address) ?? 0;
+    const state = this.tryReplayState();
+    if (!state) {
+      throw new Error('Invalid chain state');
+    }
+    return state.balances.get(address) ?? 0;
   }
 
   /**
@@ -223,14 +241,17 @@ export class Blockchain {
    * @returns {{ address: string, code: object, storage: object, balance: number } | null}
    */
   getContract(address) {
-    const { balances, contracts } = this.replayState();
-    const contract = contracts.get(address);
+    const state = this.tryReplayState();
+    if (!state) {
+      return null;
+    }
+    const contract = state.contracts.get(address);
     if (!contract) {
       return null;
     }
     return {
       ...contract.toJSON(),
-      balance: balances.get(address) ?? 0,
+      balance: state.balances.get(address) ?? 0,
     };
   }
 
@@ -238,8 +259,11 @@ export class Blockchain {
    * @returns {string[]}
    */
   listContracts() {
-    const { contracts } = this.replayState();
-    return [...contracts.keys()].sort();
+    const state = this.tryReplayState();
+    if (!state) {
+      return [];
+    }
+    return [...state.contracts.keys()].sort();
   }
 
   getPendingSpend(address) {

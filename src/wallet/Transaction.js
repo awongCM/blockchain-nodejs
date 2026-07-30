@@ -1,5 +1,5 @@
 import { sha256, verifySignature } from '../core/CryptoUtils.js';
-import { validateMethodBody } from '../contract/opcodes.js';
+import { validateMethodBody, isValidCallArg } from '../contract/opcodes.js';
 
 const METHOD_NAME = /^[a-zA-Z_][a-zA-Z0-9_]{0,31}$/;
 
@@ -147,7 +147,7 @@ export class Transaction {
       if (!Array.isArray(args) || args.length > 8) {
         return false;
       }
-      if (!args.every((a) => typeof a === 'number' || typeof a === 'string')) {
+      if (!args.every((a) => a !== null && isValidCallArg(a))) {
         return false;
       }
     }

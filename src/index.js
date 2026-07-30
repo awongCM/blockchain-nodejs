@@ -101,6 +101,18 @@ function shortAddr(address) {
   return `${address.slice(0, 10)}…${address.slice(-8)}`;
 }
 
+function formatTxLine(tx) {
+  const from = tx.fromAddress ? shortAddr(tx.fromAddress) : 'coinbase';
+  const type = tx.type ?? 'transfer';
+  let detail = '';
+  if (type === 'call' && tx.data?.method) {
+    detail = ` method=${tx.data.method}`;
+  } else if (type === 'deploy') {
+    detail = ' deploy';
+  }
+  return `[${type}] ${from} → ${shortAddr(tx.toAddress)} : ${tx.amount}${detail}`;
+}
+
 function printChain(blockchain) {
   for (const block of blockchain.chain) {
     console.log('');
@@ -111,10 +123,7 @@ function printChain(blockchain) {
     console.log(`  Hash:          ${block.hash}`);
     console.log(`  Transactions:  ${block.transactions.length}`);
     for (const tx of block.transactions) {
-      const from = tx.fromAddress ? shortAddr(tx.fromAddress) : 'coinbase';
-      console.log(
-        `    - ${from} → ${shortAddr(tx.toAddress)} : ${tx.amount}`,
-      );
+      console.log(`    - ${formatTxLine(tx)}`);
     }
   }
   console.log('');
@@ -403,9 +412,7 @@ async function runCli() {
             break;
           }
           for (const tx of blockchain.pendingTransactions) {
-            console.log(
-              `${shortAddr(tx.fromAddress)} → ${shortAddr(tx.toAddress)} : ${tx.amount}`,
-            );
+            console.log(formatTxLine(tx));
           }
           break;
         }

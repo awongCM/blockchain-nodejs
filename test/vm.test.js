@@ -66,4 +66,22 @@ describe('VirtualMachine', () => {
       /method/i,
     );
   });
+
+  it('rejects forbidden storage keys at runtime', () => {
+    assert.throws(
+      () =>
+        executeMethod({
+          code: {
+            bad: [['push', 1], ['store', '__proto__']],
+          },
+          storage: {},
+          balance: 0,
+          fromAddress: 'x',
+          amount: 0,
+          method: 'bad',
+          args: [],
+        }),
+      /method|invalid storage key/i,
+    );
+  });
 });

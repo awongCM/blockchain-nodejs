@@ -134,9 +134,16 @@ export function startHttpServer({
           sendJson(res, 400, { error: 'address required' });
           return;
         }
+        let balance;
+        try {
+          balance = node.blockchain.getBalance(address);
+        } catch {
+          sendJson(res, 503, { error: 'Invalid chain state' });
+          return;
+        }
         sendJson(res, 200, {
           address,
-          balance: node.blockchain.getBalance(address),
+          balance,
         });
         return;
       }
