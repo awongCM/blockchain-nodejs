@@ -1,6 +1,6 @@
 # LuckCoin Phase 4 — Simple Smart Contracts Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add deploy/call transactions and a tiny deterministic method-opcode VM so LuckCoin can run simple on-chain contracts with storage and value transfers.
 
@@ -55,7 +55,7 @@
   - `tx.data`: `object | null`
   - `tx.calculateHash()`, `tx.isValid()`, `tx.toJSON()`, `Transaction.fromJSON(data)`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/transaction-contract.test.js`:
 
@@ -136,13 +136,13 @@ describe('Phase 4 Transaction', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test test/transaction-contract.test.js`
 
 Expected: FAIL — `type` / `deployAddress` missing
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Replace `src/wallet/Transaction.js` with:
 
@@ -345,7 +345,7 @@ export function isValidCode(code) {
 
 Note: Task 1 `isValidCode` only checks method-map shape. Task 2 upgrades it to call `validateMethodBody` so invalid opcodes fail `tx.isValid()`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test test/transaction-contract.test.js`
 
@@ -355,7 +355,7 @@ Also run: `node --test test/wallet.test.js test/ledger.test.js`
 
 Expected: may FAIL if hash format change breaks nothing on re-sign… existing tests rebuild txs in-process so they should still pass. If coinbase/`amount` integer checks already exist, keep them.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/wallet/Transaction.js test/transaction-contract.test.js
@@ -377,7 +377,7 @@ git commit -m "feat: extend Transaction with deploy/call type and data"
   - `MAX_STEPS = 128`, `validateInstruction(inst)`, `validateMethodBody(body)`
   - `executeMethod({ code, storage, balance, fromAddress, amount, method, args }) → { storage, balance, effects, steps }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/vm.test.js`:
 
@@ -453,13 +453,13 @@ describe('VirtualMachine', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test test/vm.test.js`
 
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Implement opcodes + VM**
+- [x] **Step 3: Implement opcodes + VM**
 
 Create `src/contract/opcodes.js`:
 
@@ -721,7 +721,7 @@ export function executeMethod({
 }
 ```
 
-- [ ] **Step 4: Wire opcode validation into Transaction.isValidCode**
+- [x] **Step 4: Wire opcode validation into Transaction.isValidCode**
 
 In `src/wallet/Transaction.js`, import `validateMethodBody` from `../contract/opcodes.js` and replace the per-method body length loop with:
 
@@ -731,13 +731,13 @@ if (!validateMethodBody(body)) {
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `node --test test/vm.test.js test/transaction-contract.test.js`
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/contract/opcodes.js src/contract/VirtualMachine.js src/wallet/Transaction.js test/vm.test.js
@@ -761,7 +761,7 @@ git commit -m "feat: add contract opcode VM for method calls"
   - `blockchain.listContracts() → string[]`
   - Mempool rejects bad deploy/call; mine applies effects; `isValidChain` replays contracts
 
-- [ ] **Step 1: Write failing ledger tests**
+- [x] **Step 1: Write failing ledger tests**
 
 Create `test/contracts-ledger.test.js`:
 
@@ -850,13 +850,13 @@ describe('Contracts ledger', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `node --test test/contracts-ledger.test.js`
 
 Expected: FAIL — `getContract` missing
 
-- [ ] **Step 3: Implement ContractAccount + Blockchain integration**
+- [x] **Step 3: Implement ContractAccount + Blockchain integration**
 
 Create `src/contract/ContractAccount.js`:
 
@@ -934,13 +934,13 @@ for (const effect of result.effects) {
 
 Deploy branch credits `balances.set(toAddress, (balances.get(toAddress) ?? 0) + tx.amount)` after creating the account (VM not run on deploy).
 
-- [ ] **Step 4: Run all unit tests**
+- [x] **Step 4: Run all unit tests**
 
 Run: `node --test`
 
 Expected: ALL PASS (fix any Phase 2 tests that assumed `toAddress` always string on coinbase — unchanged).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/contract/ContractAccount.js src/core/Blockchain.js test/contracts-ledger.test.js
@@ -959,7 +959,7 @@ git commit -m "feat: apply deploy/call txs and replay contract state"
 - Consumes: `node.blockchain.getContract`, `listContracts`
 - Produces: `GET /contracts`, `GET /contracts/:address`
 
-- [ ] **Step 1: Add failing tests**
+- [x] **Step 1: Add failing tests**
 
 Append to `test/network.test.js` (reuse existing server helper):
 
@@ -974,7 +974,7 @@ it('syncs contract state across nodes after deploy', async () => {
 
 Also: `GET /contracts/unknown` → 404.
 
-- [ ] **Step 2: Implement routes in HttpServer**
+- [x] **Step 2: Implement routes in HttpServer**
 
 In the request router, before not-found:
 
@@ -993,13 +993,13 @@ if (method === 'GET' && contractMatch) {
 }
 ```
 
-- [ ] **Step 3: Run network + full tests**
+- [x] **Step 3: Run network + full tests**
 
 Run: `node --test`
 
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/network/HttpServer.js test/network.test.js
@@ -1017,7 +1017,7 @@ git commit -m "feat: expose contract state over HTTP and sync"
 - Consumes: `Transaction.deployAddress`, `blockchain.getContract`, `listContracts`, `LuckCoinNode.broadcastTransaction` (existing send path)
 - Produces: commands `deploy`, `call`, `contract`, `contracts`
 
-- [ ] **Step 1: Update banner/help to Phase 4**
+- [x] **Step 1: Update banner/help to Phase 4**
 
 Set banner to Phase 4 / simple smart contracts. Extend `HELP` with:
 
@@ -1028,7 +1028,7 @@ Set banner to Phase 4 / simple smart contracts. Extend `HELP` with:
   contracts                           List contract addresses
 ```
 
-- [ ] **Step 2: Implement command handlers**
+- [x] **Step 2: Implement command handlers**
 
 `deploy`:
 
@@ -1064,7 +1064,7 @@ case 'deploy': {
 
 Mirror whatever `send` does for broadcast (read current `src/index.js` and match).
 
-- [ ] **Step 3: Smoke**
+- [x] **Step 3: Smoke**
 
 ```bash
 node --test
@@ -1073,7 +1073,7 @@ printf 'wallet create alice\nmine alice\ndeploy alice 0 {"inc":[["load","n"],["p
 
 Expected: deploy address printed; `contracts` lists it; tests PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/index.js
@@ -1088,7 +1088,7 @@ git commit -m "feat: Phase 4 CLI for deploy, call, and contract inspect"
 - Modify: `README.md`
 - Modify: `.cursor/skills/repo-snapshot-guide/SKILL.md`
 
-- [ ] **Step 1: Update README**
+- [x] **Step 1: Update README**
 
 - Title section → Phase 4 — Simple Smart Contracts
 - Document `deploy` / `call` / `contract` / `contracts`
@@ -1096,11 +1096,11 @@ git commit -m "feat: Phase 4 CLI for deploy, call, and contract inspect"
 - Roadmap: Phases 1–3 done; Phase 4 current
 - Example straight-line `inc` contract in quick start
 
-- [ ] **Step 2: Update skill notes**
+- [x] **Step 2: Update skill notes**
 
 Add Phase 4 bullet under LuckCoin-specific notes (`cursor/luckcoin-phase4-…` / master after merge): method-opcode contracts, deploy/call txs.
 
-- [ ] **Step 3: Final verification**
+- [x] **Step 3: Final verification**
 
 ```bash
 node --test
@@ -1109,7 +1109,7 @@ printf 'help\nexit\n' | npm start
 
 Expected: all tests pass; help shows Phase 4 commands
 
-- [ ] **Step 4: Commit + push**
+- [x] **Step 4: Commit + push**
 
 ```bash
 git add README.md .cursor/skills/repo-snapshot-guide/SKILL.md

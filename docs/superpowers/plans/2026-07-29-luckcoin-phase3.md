@@ -1,6 +1,6 @@
 # LuckCoin Phase 3 — Multi-Node Network Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add an HTTP multi-node layer so LuckCoin nodes can register peers, share transactions/blocks, and resolve conflicts with longest-valid-chain consensus.
 
@@ -41,7 +41,7 @@
 - Modify: `src/wallet/Transaction.js`, `src/core/Block.js`, `src/core/Blockchain.js`
 - Test: `test/network.test.js` (start), update existing tests if genesis assertions break
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```js
 import { describe, it } from 'node:test';
@@ -88,7 +88,7 @@ describe('Phase 3 chain sync primitives', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 `Transaction.fromJSON(data)` — construct with fields from JSON.
 
@@ -103,9 +103,9 @@ describe('Phase 3 chain sync primitives', () => {
 - On success assign `this.chain = newChain` (and clear pending or leave pending — **clear pending** on replace for simplicity)
 - Return boolean
 
-- [ ] **Step 3: Fix existing tests** that assumed non-zero genesis timestamp (if any)
+- [x] **Step 3: Fix existing tests** that assumed non-zero genesis timestamp (if any)
 
-- [ ] **Step 4: Run tests; commit**
+- [x] **Step 4: Run tests; commit**
 
 ```bash
 node --test
@@ -131,7 +131,7 @@ git commit -m "feat: deterministic genesis and chain replace helpers"
 
 Use global `fetch` (Node 18+) for peer HTTP.
 
-- [ ] **Step 1: Tests with two in-process blockchains** (resolve can use injectible `fetchChain(url)` for unit tests, or spin real HTTP in Task 3)
+- [x] **Step 1: Tests with two in-process blockchains** (resolve can use injectible `fetchChain(url)` for unit tests, or spin real HTTP in Task 3)
 
 For Task 2 unit-level: test `receiveBlock` append logic and `registerPeer` normalization without HTTP:
 
@@ -160,7 +160,7 @@ describe('LuckCoinNode', () => {
 });
 ```
 
-- [ ] **Step 2: Implement `LuckCoinNode`**
+- [x] **Step 2: Implement `LuckCoinNode`**
 
 Normalize URLs: strip trailing slash.
 
@@ -168,7 +168,7 @@ Normalize URLs: strip trailing slash.
 
 `resolveConflicts`: for each peer `GET ${peer}/chain`, parse, `replaceChain` candidate if longer; track best.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git commit -m "feat: add LuckCoinNode peer registry and block receive"
@@ -182,7 +182,7 @@ git commit -m "feat: add LuckCoinNode peer registry and block receive"
 - Create: `src/network/HttpServer.js`
 - Test: `test/network.test.js`
 
-- [ ] **Step 1: Integration tests** starting two servers on ephemeral ports
+- [x] **Step 1: Integration tests** starting two servers on ephemeral ports
 
 ```js
 import { startHttpServer } from '../src/network/HttpServer.js';
@@ -196,11 +196,11 @@ Cases:
 - POST `/transactions` after funding
 - POST bad tx → 400
 
-- [ ] **Step 2: Implement router**
+- [x] **Step 2: Implement router**
 
 Bind `0.0.0.0`, port from args / `PORT` / `LUCKCOIN_PORT` / 3001.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git commit -m "feat: add HTTP API for chain, txs, mine, and peers"
@@ -213,9 +213,9 @@ git commit -m "feat: add HTTP API for chain, txs, mine, and peers"
 **Files:**
 - Modify: `src/index.js`
 
-- [ ] **Step 1: Banner Phase 3; add listen / peers / sync / url**
-- [ ] **Step 2: Wire `LuckCoinNode` + optional auto-listen via env**
-- [ ] **Step 3: Smoke manually or scripted; commit**
+- [x] **Step 1: Banner Phase 3; add listen / peers / sync / url**
+- [x] **Step 2: Wire `LuckCoinNode` + optional auto-listen via env**
+- [x] **Step 3: Smoke manually or scripted; commit**
 
 ```bash
 git commit -m "feat: Phase 3 CLI with listen, peers, and sync"
@@ -228,9 +228,9 @@ git commit -m "feat: Phase 3 CLI with listen, peers, and sync"
 **Files:**
 - Modify: `README.md`, `.cursor/skills/repo-snapshot-guide/SKILL.md`
 
-- [ ] Mark Phase 2 done, Phase 3 current
-- [ ] Multi-node quick start (two terminals)
-- [ ] Commit, push, open PR
+- [x] Mark Phase 2 done, Phase 3 current
+- [x] Multi-node quick start (two terminals)
+- [x] Commit, push, open PR
 
 ---
 
