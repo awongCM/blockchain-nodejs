@@ -1,4 +1,3 @@
-import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { Blockchain } from './core/Blockchain.js';
 import { Wallet } from './wallet/Wallet.js';
@@ -6,10 +5,33 @@ import { Transaction } from './wallet/Transaction.js';
 import { LuckCoinNode, normalizePeerUrl } from './network/Node.js';
 import { startHttpServer } from './network/HttpServer.js';
 
+/**
+ * Line reader that does not fight node:crypto over stdin (readline can lose
+ * buffered input when ECDSA keygen runs between prompts on a pipe).
+ * @param {NodeJS.ReadableStream} stream
+ */
+async function* linesOf(stream) {
+  stream.setEncoding('utf8');
+  let buffer = '';
+  for await (const chunk of stream) {
+    buffer += chunk;
+    let newline = buffer.indexOf('\n');
+    while (newline !== -1) {
+      const line = buffer.slice(0, newline).replace(/\r$/, '');
+      buffer = buffer.slice(newline + 1);
+      yield line;
+      newline = buffer.indexOf('\n');
+    }
+  }
+  if (buffer.length > 0) {
+    yield buffer.replace(/\r$/, '');
+  }
+}
+
 const BANNER = `
-  🐱 LuckCoin — Phase 3
+  🐱 LuckCoin — Phase 4
   ─────────────────────
-  Multi-node HTTP sync with longest-chain consensus.
+  Simple smart contracts with deploy, call, and sync.
 `;
 
 const HELP = `
@@ -17,6 +39,10 @@ Commands:
   wallet create [name]     Create an in-memory wallet
   wallets                  List session wallets
   send <from> <to> <amt>   Sign and enqueue a transfer
+  deploy <from> <amt> <codeJson>   Deploy contract code JSON
+  call <from> <contract> <method> [amount] [argsJson]
+  contract <address>       Show contract code/storage/balance
+  contracts                List contract addresses
   pending                  Show mempool
   mine <miner>             Mine coinbase + pending txs
   balance <name|address>   Show chain balance
@@ -54,10 +80,21 @@ function resolveAddress(nameOrAddress) {
   if (wallet) {
     return wallet.address;
   }
-  if (/^[0-9a-f]+$/i.test(nameOrAddress) && nameOrAddress.length > 80) {
+  if (
+    /^[0-9a-f]+$/i.test(nameOrAddress) &&
+    (nameOrAddress.length === 64 || nameOrAddress.length > 80)
+  ) {
     return nameOrAddress.toLowerCase();
   }
   return null;
+}
+
+function parseCodeJson(codeJson) {
+  const parsed = JSON.parse(codeJson);
+  if (parsed && typeof parsed === 'object' && parsed.code) {
+    return parsed.code;
+  }
+  return parsed;
 }
 
 function shortAddr(address) {
@@ -123,8 +160,6 @@ async function runCli() {
     console.log(`Advertised URL: ${node.url}`);
   }
 
-  const rl = createInterface({ input, output });
-
   console.log(BANNER);
   console.log('Genesis block created. Type "help" for commands.\n');
 
@@ -137,9 +172,15 @@ async function runCli() {
 
   let running = true;
   let walletCounter = 1;
+  const incoming = linesOf(input);
 
   while (running) {
-    const line = (await rl.question('luckcoin> ')).trim();
+    output.write('luckcoin> ');
+    const next = await incoming.next();
+    if (next.done) {
+      break;
+    }
+    const line = next.value.trim();
     if (!line) {
       continue;
     }
@@ -206,6 +247,153 @@ async function runCli() {
           blockchain.addTransaction(tx);
           await node.broadcastTransaction(tx);
           console.log(`Queued transfer of ${amount} to ${shortAddr(toAddress)}`);
+          break;
+        }
+
+        case 'deploy': {
+          const [fromRef, amountRaw, ...codeParts] = rest;
+          const codeJson = codeParts.join(' ');
+          if (!fromRef || amountRaw === undefined || !codeJson) {
+            console.log('Usage: deploy <from> <amount> <codeJson>');
+            break;
+          }
+          const fromWallet = resolveWallet(fromRef);
+          const amount = Number(amountRaw);
+          if (!fromWallet) {
+            console.log(`Unknown from wallet: ${fromRef}`);
+            break;
+          }
+          if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount < 0) {
+            console.log('Amount must be a non-negative whole number');
+            break;
+          }
+          let code;
+          try {
+            code = parseCodeJson(codeJson);
+          } catch {
+            console.log('Invalid code JSON');
+            break;
+          }
+          const timestamp = Date.now();
+          const toAddress = Transaction.deployAddress(
+            fromWallet.address,
+            timestamp,
+            code,
+          );
+          const tx = new Transaction({
+            fromAddress: fromWallet.address,
+            toAddress,
+            amount,
+            timestamp,
+            type: 'deploy',
+            data: { code },
+          });
+          tx.sign(fromWallet);
+          blockchain.addTransaction(tx);
+          await node.broadcastTransaction(tx);
+          console.log(`Deploy queued. Contract: ${toAddress}`);
+          break;
+        }
+
+        case 'call': {
+          const [fromRef, contractRef, method, amountOrArgs, ...argsParts] = rest;
+          if (!fromRef || !contractRef || !method) {
+            console.log(
+              'Usage: call <from> <contract> <method> [amount] [argsJson]',
+            );
+            break;
+          }
+          const fromWallet = resolveWallet(fromRef);
+          const contractAddress = resolveAddress(contractRef);
+          if (!fromWallet) {
+            console.log(`Unknown from wallet: ${fromRef}`);
+            break;
+          }
+          if (!contractAddress) {
+            console.log(`Unknown contract address: ${contractRef}`);
+            break;
+          }
+
+          let amount = 0;
+          let args = [];
+          if (amountOrArgs !== undefined) {
+            if (amountOrArgs.startsWith('[')) {
+              try {
+                args = JSON.parse([amountOrArgs, ...argsParts].join(' '));
+              } catch {
+                console.log('Invalid args JSON');
+                break;
+              }
+            } else {
+              amount = Number(amountOrArgs);
+              if (
+                !Number.isFinite(amount) ||
+                !Number.isInteger(amount) ||
+                amount < 0
+              ) {
+                console.log('Amount must be a non-negative whole number');
+                break;
+              }
+              if (argsParts.length > 0) {
+                try {
+                  args = JSON.parse(argsParts.join(' '));
+                } catch {
+                  console.log('Invalid args JSON');
+                  break;
+                }
+              }
+            }
+          }
+          if (!Array.isArray(args)) {
+            console.log('Args must be a JSON array');
+            break;
+          }
+
+          const tx = new Transaction({
+            fromAddress: fromWallet.address,
+            toAddress: contractAddress,
+            amount,
+            type: 'call',
+            data: { method, args },
+          });
+          tx.sign(fromWallet);
+          blockchain.addTransaction(tx);
+          await node.broadcastTransaction(tx);
+          console.log(
+            `Call queued: ${method} on ${shortAddr(contractAddress)} (value ${amount})`,
+          );
+          break;
+        }
+
+        case 'contract': {
+          const ref = rest[0];
+          if (!ref) {
+            console.log('Usage: contract <address>');
+            break;
+          }
+          const address = resolveAddress(ref);
+          if (!address) {
+            console.log(`Unknown contract address: ${ref}`);
+            break;
+          }
+          const contract = blockchain.getContract(address);
+          if (!contract) {
+            console.log('Contract not found');
+            break;
+          }
+          console.log(JSON.stringify(contract, null, 2));
+          break;
+        }
+
+        case 'contracts': {
+          const addresses = blockchain.listContracts();
+          if (addresses.length === 0) {
+            console.log('No contracts on chain.');
+            break;
+          }
+          for (const address of addresses) {
+            console.log(address);
+          }
           break;
         }
 
@@ -351,7 +539,6 @@ async function runCli() {
   if (http) {
     await http.close();
   }
-  rl.close();
 }
 
 runCli().catch((error) => {
